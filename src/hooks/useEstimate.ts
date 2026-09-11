@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Estimate, EstimateItem, CatalogItem } from '../types';
 import { storage } from '../services/storage';
 import { normalizeQuantity } from '../utils/quantity';
-import { isValidEstimate, MAX_ESTIMATE_ITEMS } from '../utils/validation';
 import { createId } from '../utils/id';
+import { isValidEstimate, MAX_ESTIMATE_ITEMS } from '../utils/validation';
 
 const createDefaultEstimate = (profileId = 'plumbing', profileName = 'Сантехника'): Estimate => {
   const currentDate = new Date().toISOString().split('T')[0];
