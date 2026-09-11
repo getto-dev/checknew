@@ -139,7 +139,6 @@ export default function App() {
       <Header
         currentProfile={currentProfileMeta}
         onOpenProfileSelector={() => setIsProfileModalOpen(true)}
-        onNewEstimate={() => createNewEstimate(currentProfileId, currentCatalog?.name)}
         onOpenExport={() => setIsExportModalOpen(true)}
       />
 
