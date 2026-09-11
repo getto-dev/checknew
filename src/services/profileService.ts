@@ -69,6 +69,16 @@ const FALLBACK_PROFILES_META: ProfileMeta[] = [
   },
 ];
 
+const PROFILE_ID_RE = /^[a-z0-9_-]{1,64}$/i;
+const MAX_PROFILE_NAME_LENGTH = 200;
+const MAX_DESCRIPTION_LENGTH = 1000;
+const MAX_CATEGORY_LENGTH = 200;
+const MAX_CATALOG_ITEMS = 100_000;
+const MAX_ITEM_NAME_LENGTH = 300;
+const MAX_ITEM_DESCRIPTION_LENGTH = 1000;
+const MAX_ITEM_UNIT_LENGTH = 50;
+const MAX_ITEM_CODE_LENGTH = 100;
+
 /**
  * Validates profile metadata
  */
@@ -77,23 +87,52 @@ export function validateProfileMeta(data: unknown): ProfileMeta[] {
     throw new Error('Некорректный формат списка профилей: ожидается массив');
   }
 
+  const seenIds = new Set<string>();
+
   return data.map((item, index) => {
     if (!item || typeof item !== 'object') {
       throw new Error(`Профиль #${index + 1} имеет неверный формат`);
     }
+
     const p = item as Partial<ProfileMeta>;
-    if (!p.id || typeof p.id !== 'string') throw new Error(`Профиль #${index + 1} не имеет id`);
-    if (!p.name || typeof p.name !== 'string') throw new Error(`Профиль ${p.id} не имеет имени`);
-    if (!Array.isArray(p.categories)) throw new Error(`Профиль ${p.id} не имеет списка категорий`);
+    const id = typeof p.id === 'string' ? p.id.trim() : '';
+    const name = typeof p.name === 'string' ? p.name.trim() : '';
+
+    if (!id || !PROFILE_ID_RE.test(id)) {
+      throw new Error(`Профиль #${index + 1} имеет неверный id`);
+    }
+    if (seenIds.has(id)) {
+      throw new Error(`Дублирующийся id профиля: ${id}`);
+    }
+    seenIds.add(id);
+
+    if (!name || name.length > MAX_PROFILE_NAME_LENGTH) {
+      throw new Error(`Профиль ${id} имеет неверное название`);
+    }
+    if (!Array.isArray(p.categories)) {
+      throw new Error(`Профиль ${id} не имеет списка категорий`);
+    }
+
+    const categories = p.categories
+      .filter((category): category is string => typeof category === 'string')
+      .map((category) => category.trim())
+      .filter(Boolean)
+      .filter((category) => category.length <= MAX_CATEGORY_LENGTH);
+
+    if (categories.length !== p.categories.length) {
+      throw new Error(`Профиль ${id} содержит некорректную категорию`);
+    }
 
     return {
-      id: p.id,
-      name: p.name,
-      description: p.description || '',
-      icon: p.icon || 'Wrench',
-      color: p.color || 'blue',
-      catalogPath: p.catalogPath || `/data/profiles/${p.id}/catalog.json`,
-      categories: p.categories,
+      id,
+      name,
+      description: typeof p.description === 'string' ? p.description.slice(0, MAX_DESCRIPTION_LENGTH) : '',
+      icon: typeof p.icon === 'string' && p.icon.length <= 50 ? p.icon : 'Wrench',
+      color: typeof p.color === 'string' && p.color.length <= 50 ? p.color : 'blue',
+      catalogPath: typeof p.catalogPath === 'string' && p.catalogPath.length <= 500
+        ? p.catalogPath
+        : `/data/profiles/${id}/catalog.json`,
+      categories,
     };
   });
 }
@@ -107,33 +146,70 @@ export function validateProfileCatalog(data: unknown): ProfileCatalog {
   }
 
   const cat = data as Partial<ProfileCatalog>;
-  if (!cat.id || typeof cat.id !== 'string') throw new Error('Каталог не содержит id');
-  if (!cat.name || typeof cat.name !== 'string') throw new Error('Каталог не содержит названия');
-  if (!Array.isArray(cat.items)) throw new Error('Каталог не содержит массива items');
+  const id = typeof cat.id === 'string' ? cat.id.trim() : '';
+  const name = typeof cat.name === 'string' ? cat.name.trim() : '';
 
-  const validItems: CatalogItem[] = cat.items.map((item, idx) => {
-    if (!item || typeof item !== 'object') {
+  if (!id || !PROFILE_ID_RE.test(id)) throw new Error('Каталог содержит неверный id');
+  if (!name || name.length > MAX_PROFILE_NAME_LENGTH) throw new Error('Каталог содержит неверное название');
+  if (!Array.isArray(cat.items)) throw new Error('Каталог не содержит массива items');
+  if (cat.items.length > MAX_CATALOG_ITEMS) throw new Error(`Каталог слишком большой. Максимум: ${MAX_CATALOG_ITEMS}.`);
+
+  const validItems: CatalogItem[] = [];
+  const seenIds = new Set<string>();
+
+  for (let idx = 0; idx < cat.items.length; idx += 1) {
+    const raw = cat.items[idx];
+    if (!raw || typeof raw !== 'object') {
       throw new Error(`Позиция каталога #${idx + 1} некорректна`);
     }
+
+    const item = raw as Partial<CatalogItem>;
+    const itemId = typeof item.id === 'string' ? item.id.trim() : '';
+    const itemName = typeof item.name === 'string' ? item.name.trim() : '';
+    const category = typeof item.category === 'string' ? item.category.trim() : '';
+    const unit = typeof item.unit === 'string' ? item.unit.trim() : '';
+    const price = Number(item.price);
+
+    if (!itemId || itemId.length > 128) throw new Error(`Позиция #${idx + 1} имеет неверный id`);
+    if (seenIds.has(itemId)) throw new Error(`Дублирующийся id позиции: ${itemId}`);
+    seenIds.add(itemId);
+    if (!itemName || itemName.length > MAX_ITEM_NAME_LENGTH) throw new Error(`Позиция ${itemId} имеет неверное название`);
+    if (!category || category.length > MAX_CATEGORY_LENGTH) throw new Error(`Позиция ${itemId} имеет неверную категорию`);
+    if (!unit || unit.length > MAX_ITEM_UNIT_LENGTH) throw new Error(`Позиция ${itemId} имеет неверную единицу измерения`);
+    if (!Number.isFinite(price) || price < 0) throw new Error(`Позиция ${itemId} имеет неверную цену`);
+    if (item.description !== undefined && (typeof item.description !== 'string' || item.description.length > MAX_ITEM_DESCRIPTION_LENGTH)) {
+      throw new Error(`Позиция ${itemId} имеет слишком длинное описание`);
+    }
+    if (item.code !== undefined && (typeof item.code !== 'string' || item.code.length > MAX_ITEM_CODE_LENGTH)) {
+      throw new Error(`Позиция ${itemId} имеет неверный код`);
+    }
+
     const itemType: 'material' | 'work' = item.type === 'material' ? 'material' : 'work';
-    return {
-      id: String(item.id || `item-${idx}`),
-      name: String(item.name || 'Без названия'),
-      category: String(item.category || 'Общее'),
-      unit: String(item.unit || 'шт'),
-      price: Number(item.price) || 0,
+
+    validItems.push({
+      id: itemId,
+      name: itemName,
+      category,
+      unit,
+      price,
       type: itemType,
-      description: item.description ? String(item.description) : undefined,
-      code: item.code ? String(item.code) : undefined,
-    };
-  });
+      description: typeof item.description === 'string' ? item.description : undefined,
+      code: typeof item.code === 'string' ? item.code : undefined,
+    });
+  }
 
   return {
-    id: cat.id,
-    name: cat.name,
-    description: cat.description || '',
-    icon: cat.icon || 'Wrench',
-    categories: Array.isArray(cat.categories) ? cat.categories : [],
+    id,
+    name,
+    description: typeof cat.description === 'string' ? cat.description.slice(0, MAX_DESCRIPTION_LENGTH) : '',
+    icon: typeof cat.icon === 'string' && cat.icon.length <= 50 ? cat.icon : 'Wrench',
+    categories: Array.isArray(cat.categories)
+      ? cat.categories
+          .filter((category): category is string => typeof category === 'string')
+          .map((category) => category.trim())
+          .filter(Boolean)
+          .filter((category) => category.length <= MAX_CATEGORY_LENGTH)
+      : [],
     items: validItems,
   };
 }
@@ -153,29 +229,41 @@ export async function fetchProfilesList(): Promise<ProfileMeta[]> {
     console.warn('Network fetch for profiles failed, checking offline cache', err);
     const cached = storage.getCachedProfilesMeta();
     if (cached && cached.length > 0) {
-      return cached;
+      try {
+        return validateProfileMeta(cached);
+      } catch (cacheError) {
+        console.warn('Cached profiles are invalid, using fallback profiles', cacheError);
+      }
     }
     return FALLBACK_PROFILES_META;
   }
 }
 
 export async function fetchProfileCatalog(profileId: string): Promise<ProfileCatalog> {
+  const safeProfileId = profileId.trim();
+  if (!PROFILE_ID_RE.test(safeProfileId)) {
+    throw new Error('Некорректный идентификатор профиля.');
+  }
+
   // First, check local offline cache
-  const cached = await storage.getCachedProfile(profileId);
+  const cached = await storage.getCachedProfile(safeProfileId);
 
   try {
-    const res = await fetch(`${cleanBase}data/profiles/${profileId}/catalog.json`);
+    const res = await fetch(`${cleanBase}data/profiles/${safeProfileId}/catalog.json`);
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const json = await res.json();
     const validated = validateProfileCatalog(json);
-    // Cache for offline usage
     await storage.saveCachedProfile(validated);
     return validated;
   } catch (err) {
-    console.warn(`Fetch catalog for ${profileId} failed, using cached`, err);
+    console.warn(`Fetch catalog for ${safeProfileId} failed, using cached`, err);
     if (cached) {
-      return cached;
+      try {
+        return validateProfileCatalog(cached);
+      } catch (cacheError) {
+        console.warn(`Cached catalog for ${safeProfileId} is invalid`, cacheError);
+      }
     }
-    throw new Error(`Каталог «${profileId}» не найден ни в сети, ни в кеше.`);
+    throw new Error(`Каталог «${safeProfileId}» не найден ни в сети, ни в кеше.`);
   }
 }
