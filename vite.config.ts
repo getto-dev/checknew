@@ -59,9 +59,10 @@ export default defineConfig(() => {
           runtimeCaching: [
             {
               urlPattern: /\/data\/.*\.json$/i,
-              handler: 'StaleWhileRevalidate',
+              handler: 'NetworkFirst',
               options: {
-                cacheName: 'estimate-data-cache',
+                cacheName: 'estimate-data-cache-v2',
+                networkTimeoutSeconds: 3,
                 expiration: {
                   maxEntries: 50,
                   maxAgeSeconds: 60 * 60 * 24 * 30,
