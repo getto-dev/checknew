@@ -1,9 +1,21 @@
 import { Estimate, EstimateItem } from '../types';
 
 export const MAX_ESTIMATE_ITEMS = 5000;
+export const MAX_NAME_LENGTH = 300;
+export const MAX_CATEGORY_LENGTH = 200;
+export const MAX_UNIT_LENGTH = 50;
+export const MAX_DESCRIPTION_LENGTH = 1000;
+export const MAX_PHONE_LENGTH = 100;
+export const MAX_ADDRESS_LENGTH = 500;
+export const MAX_NOTES_LENGTH = 2000;
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
+}
+
+function hasText(value: unknown, maxLength: number, allowEmpty = false): value is string {
+  if (typeof value !== 'string' || value.length > maxLength) return false;
+  return allowEmpty || value.trim().length > 0;
 }
 
 export function isValidEstimateItem(value: unknown): value is EstimateItem {
@@ -12,13 +24,14 @@ export function isValidEstimateItem(value: unknown): value is EstimateItem {
   const item = value as Partial<EstimateItem>;
 
   return (
-    typeof item.id === 'string' && item.id.length > 0 &&
-    typeof item.name === 'string' && item.name.trim().length > 0 && item.name.length <= 300 &&
-    typeof item.category === 'string' && item.category.length > 0 &&
-    typeof item.unit === 'string' && item.unit.length > 0 &&
+    hasText(item.id, MAX_NAME_LENGTH) &&
+    hasText(item.name, MAX_NAME_LENGTH) &&
+    hasText(item.category, MAX_CATEGORY_LENGTH) &&
+    hasText(item.unit, MAX_UNIT_LENGTH) &&
     isFiniteNumber(item.price) && item.price >= 0 &&
     isFiniteNumber(item.quantity) && item.quantity > 0 &&
     isFiniteNumber(item.total) && item.total >= 0 &&
+    (item.description === undefined || hasText(item.description, MAX_DESCRIPTION_LENGTH, true)) &&
     (item.type === undefined || item.type === 'work' || item.type === 'material')
   );
 }
@@ -29,12 +42,15 @@ export function isValidEstimate(value: unknown): value is Estimate {
   const estimate = value as Partial<Estimate>;
 
   return (
-    typeof estimate.id === 'string' && estimate.id.length > 0 &&
-    typeof estimate.title === 'string' && estimate.title.length <= 300 &&
-    typeof estimate.customer === 'string' && estimate.customer.length <= 300 &&
-    typeof estimate.companyName === 'string' && estimate.companyName.length <= 300 &&
-    typeof estimate.date === 'string' && estimate.date.length > 0 &&
-    typeof estimate.profileId === 'string' && estimate.profileId.length > 0 &&
+    hasText(estimate.id, MAX_NAME_LENGTH) &&
+    hasText(estimate.title, MAX_NAME_LENGTH, true) &&
+    hasText(estimate.customer, MAX_NAME_LENGTH, true) &&
+    hasText(estimate.companyName, MAX_NAME_LENGTH, true) &&
+    hasText(estimate.date, 50) &&
+    hasText(estimate.phone, MAX_PHONE_LENGTH, true) &&
+    hasText(estimate.address, MAX_ADDRESS_LENGTH, true) &&
+    hasText(estimate.notes, MAX_NOTES_LENGTH, true) &&
+    hasText(estimate.profileId, MAX_NAME_LENGTH) &&
     Array.isArray(estimate.items) &&
     estimate.items.length <= MAX_ESTIMATE_ITEMS &&
     estimate.items.every(isValidEstimateItem) &&
