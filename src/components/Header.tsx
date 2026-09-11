@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wrench, Zap, Paintbrush, Hammer, ChevronDown, Plus, FileDown, WifiOff } from 'lucide-react';
+import { Wrench, Zap, Paintbrush, Hammer, ChevronDown, FileDown, WifiOff } from 'lucide-react';
 import { ProfileMeta } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -7,7 +7,6 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus';
 interface HeaderProps {
   currentProfile: ProfileMeta | null;
   onOpenProfileSelector: () => void;
-  onNewEstimate: () => void;
   onOpenExport: () => void;
 }
 
@@ -21,7 +20,6 @@ const ICONS_MAP: Record<string, React.ReactNode> = {
 export const Header: React.FC<HeaderProps> = ({
   currentProfile,
   onOpenProfileSelector,
-  onNewEstimate,
   onOpenExport,
 }) => {
   const isOnline = useOnlineStatus();
@@ -86,18 +84,6 @@ export const Header: React.FC<HeaderProps> = ({
               </>
             )}
           </div>
-
-          {/* New Estimate Button */}
-          <button
-            id="new-estimate-btn"
-            onClick={onNewEstimate}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-medium transition active:scale-95 cursor-pointer"
-            title="Очистить и начать новую смету"
-          >
-            <Plus className="w-4 h-4 text-emerald-400" />
-            <span className="hidden xs:inline">Новая смета</span>
-            <span className="xs:hidden">Новая</span>
-          </button>
 
           {/* Export Button */}
           <button
