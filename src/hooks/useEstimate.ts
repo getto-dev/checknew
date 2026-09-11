@@ -130,6 +130,7 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
       isMounted = false;
       if (saveTimeoutRef.current) {
         window.clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
       }
     };
   }, []);
@@ -138,12 +139,22 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     if (saveTimeoutRef.current) {
       window.clearTimeout(saveTimeoutRef.current);
     }
-    saveTimeoutRef.current = window.setTimeout(() => {
-      storage.saveEstimate(updated).catch((err) => {
+    saveTimeoutRef.current = window.setTimeout(async () => {
+      saveTimeoutRef.current = null;
+      try {
+        await storage.saveEstimate(updated);
+        storage.setActiveEstimateId(updated.id);
+      } catch (err) {
         console.error('Failed to auto-save estimate:', err);
-      });
-      storage.setActiveEstimateId(updated.id);
+      }
     }, 250);
+  }, []);
+
+  const cancelPendingSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
   }, []);
 
   const updateItemsInternal = useCallback(
@@ -171,6 +182,11 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
   const addItem = useCallback(
     (item: CatalogItem | Omit<EstimateItem, 'id' | 'total'>, quantity = 1) => {
       const validQty = normalizeQuantity(quantity);
+      const safeName = String(item.name || '').trim().slice(0, 300) || 'Позиция без названия';
+      const safeCategory = String(item.category || '').trim().slice(0, 200) || 'Общие работы';
+      const safeUnit = String(item.unit || '').trim().slice(0, 50) || 'шт';
+      const safeDescription = item.description ? String(item.description).slice(0, 500) : undefined;
+      const safePrice = Number.isFinite(Number(item.price)) && Number(item.price) >= 0 ? Number(item.price) : 0;
 
       setEstimate((prev) => {
         if (prev.items.length >= MAX_ESTIMATE_ITEMS) {
@@ -182,7 +198,7 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
         const existingIdx = prev.items.findIndex(
           (it) =>
             (catalogId && it.catalogId === catalogId) ||
-            (!catalogId && it.name === item.name && it.unit === item.unit)
+            (!catalogId && it.name === safeName && it.unit === safeUnit)
         );
 
         let updatedItems: EstimateItem[];
@@ -203,13 +219,13 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
           const newItem: EstimateItem = {
             id: createId('item'),
             catalogId,
-            name: item.name,
-            description: item.description,
-            category: item.category,
-            unit: item.unit,
-            price: item.price,
+            name: safeName,
+            description: safeDescription,
+            category: safeCategory,
+            unit: safeUnit,
+            price: safePrice,
             quantity: validQty,
-            total: Math.round(item.price * validQty),
+            total: Math.round(safePrice * validQty),
             type: item.type || 'work',
           };
           updatedItems = [...prev.items, newItem];
@@ -254,7 +270,7 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
       }
 
       setEstimate((prev) => {
-        const safeQty = Number.isFinite(newQty) ? newQty : 1;
+        const safeQty = normalizeQuantity(Number.isFinite(newQty) ? newQty : 1);
         const updatedItems = prev.items.map((it) => {
           if (it.id !== id) return it;
           return {
@@ -358,14 +374,28 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
 
   const createNewEstimate = useCallback(
     async (profileId?: string, profileName?: string) => {
+      cancelPendingSave();
+
+      if (isLoaded && isValidEstimate(estimate)) {
+        try {
+          await storage.saveEstimate({ ...estimate, updatedAt: Date.now() });
+        } catch (err) {
+          console.error('Failed to preserve current estimate before creating a new one:', err);
+        }
+      }
+
       const pId = profileId || estimate.profileId || 'plumbing';
       const pName = profileName || estimate.profileName || 'Сантехника';
       const fresh = createDefaultEstimate(pId, pName);
       setEstimate(fresh);
-      await storage.saveEstimate(fresh);
-      storage.setActiveEstimateId(fresh.id);
+      try {
+        await storage.saveEstimate(fresh);
+        storage.setActiveEstimateId(fresh.id);
+      } catch (err) {
+        console.error('Failed to persist new estimate:', err);
+      }
     },
-    [estimate.profileId, estimate.profileName]
+    [cancelPendingSave, estimate, isLoaded]
   );
 
   const updateMetadata = useCallback(
@@ -389,6 +419,8 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
         throw new Error('Imported estimate data is invalid');
       }
 
+      cancelPendingSave();
+
       const totals = calculateEstimateTotals(restored.items, restored.discount || 0);
       const formatted: Estimate = {
         ...createDefaultEstimate(restored.profileId, restored.profileName),
@@ -409,7 +441,7 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
       await storage.saveEstimate(formatted);
       storage.setActiveEstimateId(formatted.id);
     },
-    []
+    [cancelPendingSave]
   );
 
   const totals = useMemo(() => {
