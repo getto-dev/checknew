@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Estimate, EstimateItem, CatalogItem } from '../types';
 import { storage } from '../services/storage';
-import { normalizeQuantity, changeQuantity } from '../utils/quantity';
+import { normalizeQuantity } from '../utils/quantity';
+import { isValidEstimate, MAX_ESTIMATE_ITEMS } from '../utils/validation';
 
 const createDefaultEstimate = (profileId = 'plumbing', profileName = 'Сантехника'): Estimate => {
   const currentDate = new Date().toISOString().split('T')[0];
   const now = Date.now();
   return {
-    id: `est-${now}`,
+    id: `est-${crypto.randomUUID()}`,
     title: '',
     customer: '',
     companyName: '',
@@ -28,9 +29,6 @@ const createDefaultEstimate = (profileId = 'plumbing', profileName = 'Санте
   };
 };
 
-/**
- * Calculates subtotals, discount amount and grand total
- */
 export function calculateEstimateTotals(items: EstimateItem[], discountPercent: number) {
   let servicesSum = 0;
   let productsSum = 0;
@@ -39,7 +37,7 @@ export function calculateEstimateTotals(items: EstimateItem[], discountPercent: 
 
   for (const item of items) {
     const isMaterial = item.type === 'material';
-    const itemTotal = item.total || Math.round(item.price * item.quantity);
+    const itemTotal = Number.isFinite(item.total) ? item.total : Math.round(item.price * item.quantity);
 
     if (isMaterial) {
       productsSum += itemTotal;
@@ -52,7 +50,6 @@ export function calculateEstimateTotals(items: EstimateItem[], discountPercent: 
 
   const subtotal = servicesSum + productsSum;
   const clampedDiscount = Math.max(0, Math.min(100, Number(discountPercent) || 0));
-  // Discount applies to works/services according to industry standard, or total
   const discountAmount = Math.round((servicesSum * clampedDiscount) / 100);
   const grandTotal = Math.max(0, servicesSum - discountAmount + productsSum);
 
@@ -78,7 +75,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const saveTimeoutRef = useRef<number | null>(null);
 
-  // Initial load from storage
   useEffect(() => {
     let isMounted = true;
 
@@ -92,7 +88,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
         }
 
         if (!loaded) {
-          // If no active estimate ID or not found, try to get the latest estimate
           const allEstimates = await storage.getAllEstimates();
           if (allEstimates.length > 0) {
             loaded = allEstimates[0];
@@ -100,11 +95,10 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
         }
 
         if (isMounted) {
-          if (loaded && loaded.items) {
+          if (loaded && isValidEstimate(loaded)) {
             const totals = calculateEstimateTotals(loaded.items, loaded.discount || 0);
             const validated: Estimate = {
               ...loaded,
-              items: loaded.items,
               subtotal: totals.subtotal,
               servicesSubtotal: totals.servicesSum,
               materialsSubtotal: totals.productsSum,
@@ -139,7 +133,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     };
   }, []);
 
-  // Debounced auto-save
   const persistEstimate = useCallback((updated: Estimate) => {
     if (saveTimeoutRef.current) {
       window.clearTimeout(saveTimeoutRef.current);
@@ -152,7 +145,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     }, 250);
   }, []);
 
-  // Helper to update items and recompute all totals
   const updateItemsInternal = useCallback(
     (newItems: EstimateItem[], newDiscount?: number) => {
       setEstimate((prev) => {
@@ -175,12 +167,16 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     [persistEstimate]
   );
 
-  // Add catalog item (with quantity merging) or custom item
   const addItem = useCallback(
     (item: CatalogItem | Omit<EstimateItem, 'id' | 'total'>, quantity = 1) => {
       const validQty = normalizeQuantity(quantity);
 
       setEstimate((prev) => {
+        if (prev.items.length >= MAX_ESTIMATE_ITEMS) {
+          console.warn(`Estimate item limit reached: ${MAX_ESTIMATE_ITEMS}`);
+          return prev;
+        }
+
         const catalogId = 'id' in item ? item.id : undefined;
         const existingIdx = prev.items.findIndex(
           (it) =>
@@ -204,7 +200,7 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
           });
         } else {
           const newItem: EstimateItem = {
-            id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            id: `item-${crypto.randomUUID()}`,
             catalogId,
             name: item.name,
             description: item.description,
@@ -235,7 +231,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     [persistEstimate]
   );
 
-  // Step quantity
   const updateItemQuantity = useCallback(
     (id: string, newQty: number) => {
       if (newQty <= 0) {
@@ -258,12 +253,13 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
       }
 
       setEstimate((prev) => {
+        const safeQty = Number.isFinite(newQty) ? newQty : 1;
         const updatedItems = prev.items.map((it) => {
           if (it.id !== id) return it;
           return {
             ...it,
-            quantity: newQty,
-            total: Math.round(it.price * newQty),
+            quantity: safeQty,
+            total: Math.round(it.price * safeQty),
           };
         });
 
@@ -284,10 +280,9 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     [persistEstimate]
   );
 
-  // Update item price
   const updateItemPrice = useCallback(
     (id: string, newPrice: number) => {
-      if (newPrice < 0 || isNaN(newPrice)) return;
+      if (!Number.isFinite(newPrice) || newPrice < 0) return;
 
       setEstimate((prev) => {
         const updatedItems = prev.items.map((it) => {
@@ -316,7 +311,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     [persistEstimate]
   );
 
-  // Delete item
   const deleteItem = useCallback(
     (id: string) => {
       setEstimate((prev) => {
@@ -338,7 +332,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     [persistEstimate]
   );
 
-  // Clear all items
   const clearEstimate = useCallback(() => {
     setEstimate((prev) => {
       const updated: Estimate = {
@@ -355,7 +348,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     });
   }, [persistEstimate]);
 
-  // Update discount
   const updateDiscount = useCallback(
     (newDiscount: number) => {
       updateItemsInternal(estimate.items, newDiscount);
@@ -363,7 +355,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     [estimate.items, updateItemsInternal]
   );
 
-  // Reset to brand new estimate
   const createNewEstimate = useCallback(
     async (profileId?: string, profileName?: string) => {
       const pId = profileId || estimate.profileId || 'plumbing';
@@ -376,7 +367,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     [estimate.profileId, estimate.profileName]
   );
 
-  // Update customer / project metadata
   const updateMetadata = useCallback(
     (metadata: Partial<Estimate>) => {
       setEstimate((prev) => {
@@ -392,16 +382,19 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     [persistEstimate]
   );
 
-  // Restore imported estimate
   const restoreEstimate = useCallback(
     async (restored: Estimate) => {
-      const totals = calculateEstimateTotals(restored.items || [], restored.discount || 0);
+      if (!isValidEstimate(restored)) {
+        throw new Error('Imported estimate data is invalid');
+      }
+
+      const totals = calculateEstimateTotals(restored.items, restored.discount || 0);
       const formatted: Estimate = {
         ...createDefaultEstimate(restored.profileId, restored.profileName),
         ...restored,
-        items: (restored.items || []).map((it) => ({
+        items: restored.items.map((it) => ({
           ...it,
-          id: it.id || `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: it.id || `item-${crypto.randomUUID()}`,
           total: Math.round(it.price * it.quantity),
         })),
         subtotal: totals.subtotal,
@@ -418,7 +411,6 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
     []
   );
 
-  // Computed totals memoized
   const totals = useMemo(() => {
     return calculateEstimateTotals(estimate.items, estimate.discount);
   }, [estimate.items, estimate.discount]);
