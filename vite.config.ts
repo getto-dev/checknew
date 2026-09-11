@@ -5,7 +5,10 @@ import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
+  const base = process.env.BASE_PATH || (process.env.GITHUB_ACTIONS ? '/checknew/' : '/');
+
   return {
+    base,
     plugins: [
       react(),
       tailwindcss(),
@@ -19,30 +22,30 @@ export default defineConfig(() => {
           'data/profiles/**/*.json',
         ],
         manifest: {
-          id: '/',
+          id: base,
           name: 'СметаПро — Строительные сметы',
           short_name: 'СметаПро',
           description: 'Профессиональное PWA-приложение для составления строительных смет с каталогом работ и материалов, расчетом скидок и экспортом.',
           theme_color: '#0f172a',
           background_color: '#0f172a',
           display: 'standalone',
-          start_url: '/',
-          scope: '/',
+          start_url: base,
+          scope: base,
           icons: [
             {
-              src: '/pwa-192x192.png',
+              src: `${base}pwa-192x192.png`,
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-512x512.png',
+              src: `${base}pwa-512x512.png`,
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-maskable-512x512.png',
+              src: `${base}pwa-maskable-512x512.png`,
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',
@@ -53,7 +56,7 @@ export default defineConfig(() => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
           runtimeCaching: [
             {
-              urlPattern: /^\/data\/.*\.json$/i,
+              urlPattern: /\/data\/.*\.json$/i,
               handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'estimate-data-cache',

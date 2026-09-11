@@ -43,22 +43,25 @@ const BORDER = rgb(216 / 255, 220 / 255, 224 / 255); // #d8dce0
 let cachedRegularFont: Uint8Array | null = null;
 let cachedBoldFont: Uint8Array | null = null;
 
+const baseUrl = import.meta.env.BASE_URL || '/';
+const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+
 async function loadFonts(): Promise<{ regular: Uint8Array; bold: Uint8Array }> {
   if (!cachedRegularFont) {
-    let res = await fetch('/fonts/Roboto-Regular.woff');
+    let res = await fetch(`${cleanBase}fonts/Roboto-Regular.woff`);
     if (!res.ok) {
-      res = await fetch('/fonts/roboto-all-400-normal.woff');
+      res = await fetch(`${cleanBase}fonts/roboto-all-400-normal.woff`);
     }
     if (!res.ok) {
-      res = await fetch('/fonts/LiberationSans-Regular.ttf');
+      res = await fetch(`${cleanBase}fonts/LiberationSans-Regular.ttf`);
     }
     if (!res.ok) throw new Error('Не удалось загрузить базовый шрифт');
     cachedRegularFont = new Uint8Array(await res.arrayBuffer());
   }
   if (!cachedBoldFont) {
-    let res = await fetch('/fonts/Roboto-Bold.woff');
+    let res = await fetch(`${cleanBase}fonts/Roboto-Bold.woff`);
     if (!res.ok) {
-      res = await fetch('/fonts/LiberationSans-Bold.ttf');
+      res = await fetch(`${cleanBase}fonts/LiberationSans-Bold.ttf`);
     }
     if (!res.ok) {
       // Fallback to regular font if bold is unavailable

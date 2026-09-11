@@ -138,9 +138,12 @@ export function validateProfileCatalog(data: unknown): ProfileCatalog {
   };
 }
 
+const baseUrl = import.meta.env.BASE_URL || '/';
+const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+
 export async function fetchProfilesList(): Promise<ProfileMeta[]> {
   try {
-    const res = await fetch('/data/profiles.json', { cache: 'no-cache' });
+    const res = await fetch(`${cleanBase}data/profiles.json`, { cache: 'no-cache' });
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const json = await res.json();
     const validated = validateProfileMeta(json);
@@ -161,7 +164,7 @@ export async function fetchProfileCatalog(profileId: string): Promise<ProfileCat
   const cached = await storage.getCachedProfile(profileId);
 
   try {
-    const res = await fetch(`/data/profiles/${profileId}/catalog.json`);
+    const res = await fetch(`${cleanBase}data/profiles/${profileId}/catalog.json`);
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const json = await res.json();
     const validated = validateProfileCatalog(json);
