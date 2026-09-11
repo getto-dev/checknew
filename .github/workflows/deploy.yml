@@ -40,6 +40,9 @@ jobs:
             npm install
           fi
 
+      - name: Validate catalog data
+        run: npm run validate:data
+
       - name: Build Vite App
         run: npm run build
         env:
