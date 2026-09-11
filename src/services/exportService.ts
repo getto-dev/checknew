@@ -1,6 +1,7 @@
 import { Estimate, EstimateItem } from '../types';
 import { generateAndDownloadVectorPDF, getEstimateNumber } from './pdfExportService';
 import { formatQuantity } from '../utils/quantity';
+import { isValidEstimate, MAX_ESTIMATE_ITEMS } from '../utils/validation';
 
 export { generateAndDownloadVectorPDF };
 
@@ -32,19 +33,19 @@ function money(amount: number): string {
 }
 
 /**
- * Validates and restores an Estimate from an uploaded JSON or HTML file
+ * Validates and restores an Estimate from an uploaded JSON or HTML file.
+ * Numeric values are normalized before the final runtime validation.
  */
 export async function importFromFile(file: File): Promise<Estimate> {
   const text = await file.text();
   let parsed: unknown = null;
 
-  // Check if it's an HTML file with embedded estimate data
-  const isHtml = file.name.endsWith('.html') || file.name.endsWith('.htm') || text.trim().startsWith('<');
+  const isHtml = file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm') || text.trim().startsWith('<');
   if (isHtml) {
     const match = text.match(/<script[^>]*id=["'](?:__ESTIMATE_DATA__|smeta-app-data|check-estimate-data|estimate-data)["'][^>]*>([\s\S]*?)<\/script>/i);
     if (match && match[1]) {
       try {
-        const unescaped = match[1].replace(/<\/script/gi, '</script').replace(/<!--/g, '<!--');
+        const unescaped = match[1].replace(/<\\/script/gi, '</script').replace(/<!--/g, '<!--');
         parsed = JSON.parse(unescaped);
       } catch {
         throw new Error('Не удалось прочитать встроенные данные сметы из HTML файла.');
@@ -64,37 +65,43 @@ export async function importFromFile(file: File): Promise<Estimate> {
     throw new Error('Некорректная структура файла сметы.');
   }
 
-  const p = parsed as any;
+  const p = parsed as Record<string, any>;
   const rawItems = Array.isArray(p.items) ? p.items : (p.data && Array.isArray(p.data.items) ? p.data.items : null);
 
   if (!rawItems) {
     throw new Error('В файле отсутствует список позиций сметы (items).');
   }
 
-  const items: EstimateItem[] = rawItems.map((it: any, idx: number) => {
-    let price = Number(it.price);
-    if ((!price || isNaN(price)) && typeof it.priceKopecks === 'number') {
-      price = Math.round(it.priceKopecks / 100);
+  if (rawItems.length > MAX_ESTIMATE_ITEMS) {
+    throw new Error(`Смета содержит слишком много позиций. Максимум: ${MAX_ESTIMATE_ITEMS}.`);
+  }
+
+  const items: EstimateItem[] = rawItems.map((it: unknown, idx: number) => {
+    const item = it && typeof it === 'object' ? it as Record<string, any> : {};
+    let price = Number(item.price);
+    if ((!Number.isFinite(price) || price === 0) && typeof item.priceKopecks === 'number') {
+      price = Math.round(item.priceKopecks / 100);
     }
-    price = Number.isFinite(price) ? price : 0;
-    const qty = Number(it.quantity) || 1;
+    const quantity = Number(item.quantity);
 
     return {
-      id: String(it.id || `restored-${Date.now()}-${idx}`),
-      name: String(it.name || 'Позиция без названия'),
-      category: String(it.category || it.categoryId || 'Общие работы'),
-      unit: String(it.unit || 'шт'),
-      price,
-      quantity: qty,
-      total: Math.round(price * qty),
-      description: it.description ? String(it.description) : undefined,
-      type: it.type === 'product' || it.type === 'material' ? 'material' : 'work',
+      id: typeof item.id === 'string' && item.id.trim() ? item.id : `restored-${crypto.randomUUID()}-${idx}`,
+      name: String(item.name || 'Позиция без названия').slice(0, 300),
+      category: String(item.category || item.categoryId || 'Общие работы'),
+      unit: String(item.unit || 'шт'),
+      price: Number.isFinite(price) && price >= 0 ? price : 0,
+      quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+      total: 0,
+      description: item.description ? String(item.description).slice(0, 500) : undefined,
+      type: item.type === 'product' || item.type === 'material' ? 'material' : 'work',
     };
-  });
+  }).map((item) => ({
+    ...item,
+    total: Math.round(item.price * item.quantity),
+  }));
 
   const subtotal = items.reduce((acc, curr) => acc + curr.total, 0);
-  const discount = Math.max(0, Math.min(100, Number(p.discount ?? p.settings?.discountPercent ?? p.settings?.discount ?? 0)));
-  const total = Math.round(subtotal - (subtotal * discount) / 100);
+  const discount = Math.max(0, Math.min(100, Number(p.discount ?? p.settings?.discountPercent ?? p.settings?.discount ?? 0) || 0));
 
   const servicesSubtotal = items
     .filter((i) => i.type === 'work' || !i.type)
@@ -102,44 +109,43 @@ export async function importFromFile(file: File): Promise<Estimate> {
   const materialsSubtotal = items
     .filter((i) => i.type === 'material')
     .reduce((sum, i) => sum + i.total, 0);
+  const discountAmount = Math.round((servicesSubtotal * discount) / 100);
+  const total = Math.max(0, servicesSubtotal - discountAmount + materialsSubtotal);
 
   const restored: Estimate = {
-    id: p.id || `est-${Date.now()}`,
-    title: p.title || p.name || '',
-    customer: p.customer || p.settings?.clientName || '',
-    companyName: p.companyName || p.settings?.contractorName || '',
-    date: p.date || p.settings?.date || new Date().toISOString().split('T')[0],
+    id: typeof p.id === 'string' && p.id.trim() ? p.id : `est-${crypto.randomUUID()}`,
+    title: String(p.title || p.name || '').slice(0, 300),
+    customer: String(p.customer || p.settings?.clientName || '').slice(0, 300),
+    companyName: String(p.companyName || p.settings?.contractorName || '').slice(0, 300),
+    date: String(p.date || p.settings?.date || new Date().toISOString().split('T')[0]),
     phone: p.phone || p.settings?.phone || '',
     address: p.address || p.settings?.address || '',
     notes: p.notes || p.settings?.notes || '',
-    profileId: p.profileId || 'plumbing',
-    profileName: p.profileName || '',
+    profileId: String(p.profileId || 'plumbing'),
+    profileName: String(p.profileName || ''),
     items,
     discount,
     subtotal,
     servicesSubtotal,
     materialsSubtotal,
     total,
-    createdAt: p.createdAt || Date.now(),
+    createdAt: Number.isFinite(Number(p.createdAt)) ? Number(p.createdAt) : Date.now(),
     updatedAt: Date.now(),
   };
+
+  if (!isValidEstimate(restored)) {
+    throw new Error('Импортированная смета не прошла проверку данных.');
+  }
 
   return restored;
 }
 
 export const importFromJSON = importFromFile;
 
-/**
- * Generates standalone HTML document formatted identically to getto-dev/check
- * - Strictly matches dimensions, layout, colors, typography, and borders
- * - Strictly omits empty/unfilled metadata fields
- * - Embeds __ESTIMATE_DATA__ and smeta-app-data for instant re-import as backup
- */
 export function generateStandaloneHTML(estimate: Estimate): string {
   const docNumber = getEstimateNumber(estimate);
   const documentTitle = estimate.title?.trim() || `СЧЕТ №${docNumber}`;
 
-  // Object / Address / Customer / Contractor: strictly omit if empty
   const objectParts: string[] = [];
   if (estimate.address?.trim()) objectParts.push(estimate.address.trim());
   if (estimate.customer?.trim()) objectParts.push(estimate.customer.trim());
@@ -239,7 +245,6 @@ export function generateStandaloneHTML(estimate: Estimate): string {
       </div>`
     : '';
 
-  // Embedded JSON representations for backup and 100% interoperability
   const embeddedJson = JSON.stringify(estimate).replace(/<\/script/gi, '<\\/script');
 
   return `<!doctype html>
@@ -327,9 +332,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 </html>`;
 }
 
-/**
- * Downloads standalone HTML backup file (containing embedded JSON)
- */
 export function exportToHTML(estimate: Estimate): void {
   const html = generateStandaloneHTML(estimate);
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
@@ -341,12 +343,9 @@ export function exportToHTML(estimate: Estimate): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-/**
- * Fallback to standard print if needed
- */
 export function triggerPrintPDF(estimate: Estimate): void {
   try {
     const html = generateStandaloneHTML(estimate);
