@@ -3,12 +3,13 @@ import { Estimate, EstimateItem, CatalogItem } from '../types';
 import { storage } from '../services/storage';
 import { normalizeQuantity } from '../utils/quantity';
 import { isValidEstimate, MAX_ESTIMATE_ITEMS } from '../utils/validation';
+import { createId } from '../utils/id';
 
 const createDefaultEstimate = (profileId = 'plumbing', profileName = 'Сантехника'): Estimate => {
   const currentDate = new Date().toISOString().split('T')[0];
   const now = Date.now();
   return {
-    id: `est-${crypto.randomUUID()}`,
+    id: createId('est'),
     title: '',
     customer: '',
     companyName: '',
@@ -200,7 +201,7 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
           });
         } else {
           const newItem: EstimateItem = {
-            id: `item-${crypto.randomUUID()}`,
+            id: createId('item'),
             catalogId,
             name: item.name,
             description: item.description,
@@ -394,7 +395,7 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
         ...restored,
         items: restored.items.map((it) => ({
           ...it,
-          id: it.id || `item-${crypto.randomUUID()}`,
+          id: it.id || createId('item'),
           total: Math.round(it.price * it.quantity),
         })),
         subtotal: totals.subtotal,
