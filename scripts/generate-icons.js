@@ -1,0 +1,146 @@
+import sharp from 'sharp';
+import fs from 'fs';
+import path from 'path';
+
+const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0284c7" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="url(#bgGrad)" />
+
+  <!-- Technical blueprint subtle grid -->
+  <path d="M64 128 h384 M64 192 h384 M64 256 h384 M64 320 h384 M64 384 h384" stroke="#334155" stroke-width="1.5" stroke-dasharray="4,6" opacity="0.4" />
+  <path d="M128 64 v384 M192 64 v384 M256 64 v384 M320 64 v384 M384 64 v384" stroke="#334155" stroke-width="1.5" stroke-dasharray="4,6" opacity="0.4" />
+
+  <!-- Main Document / Clipboard Shape -->
+  <g filter="url(#glow)">
+    <rect x="110" y="100" width="292" height="332" rx="24" fill="#1e293b" stroke="#475569" stroke-width="3" />
+    
+    <!-- Top Clip -->
+    <rect x="186" y="82" width="140" height="36" rx="10" fill="url(#goldGrad)" />
+    <circle cx="256" cy="100" r="6" fill="#1e293b" />
+    
+    <!-- Header lines inside doc -->
+    <rect x="146" y="148" width="130" height="16" rx="4" fill="url(#accentGrad)" />
+    <rect x="296" y="148" width="70" height="16" rx="4" fill="#334155" />
+
+    <!-- Table rows with checkmarks and numbers -->
+    <!-- Row 1 -->
+    <rect x="146" y="184" width="220" height="32" rx="8" fill="#0f172a" />
+    <circle cx="166" cy="200" r="7" fill="#10b981" />
+    <rect x="184" y="196" width="90" height="8" rx="3" fill="#94a3b8" />
+    <rect x="310" y="196" width="40" height="8" rx="3" fill="#38bdf8" />
+
+    <!-- Row 2 -->
+    <rect x="146" y="226" width="220" height="32" rx="8" fill="#0f172a" />
+    <circle cx="166" cy="242" r="7" fill="#10b981" />
+    <rect x="184" y="238" width="110" height="8" rx="3" fill="#94a3b8" />
+    <rect x="310" y="238" width="40" height="8" rx="3" fill="#38bdf8" />
+
+    <!-- Row 3 -->
+    <rect x="146" y="268" width="220" height="32" rx="8" fill="#0f172a" />
+    <circle cx="166" cy="284" r="7" fill="#10b981" />
+    <rect x="184" y="280" width="80" height="8" rx="3" fill="#94a3b8" />
+    <rect x="310" y="280" width="40" height="8" rx="3" fill="#38bdf8" />
+
+    <!-- Divider & Total line -->
+    <line x1="146" y1="316" x2="366" y2="316" stroke="#475569" stroke-width="2" stroke-dasharray="4,4" />
+    <rect x="146" y="334" width="80" height="12" rx="4" fill="#64748b" />
+    <rect x="286" y="330" width="80" height="20" rx="6" fill="url(#goldGrad)" />
+  </g>
+
+  <!-- Floating Ruler Badge -->
+  <g transform="translate(320, 310) rotate(-12)">
+    <rect width="130" height="34" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2" filter="url(#glow)" />
+    <!-- Ruler notches -->
+    <line x1="15" y1="0" x2="15" y2="12" stroke="#475569" stroke-width="2" />
+    <line x1="30" y1="0" x2="30" y2="8" stroke="#94a3b8" stroke-width="1.5" />
+    <line x1="45" y1="0" x2="45" y2="12" stroke="#475569" stroke-width="2" />
+    <line x1="60" y1="0" x2="60" y2="8" stroke="#94a3b8" stroke-width="1.5" />
+    <line x1="75" y1="0" x2="75" y2="12" stroke="#475569" stroke-width="2" />
+    <line x1="90" y1="0" x2="90" y2="8" stroke="#94a3b8" stroke-width="1.5" />
+    <line x1="105" y1="0" x2="105" y2="12" stroke="#475569" stroke-width="2" />
+  </g>
+
+  <!-- Pencil / Stylus Tool -->
+  <g transform="translate(90, 270) rotate(-35)">
+    <path d="M0,0 L24,0 L18,80 L12,96 L6,80 Z" fill="#e2e8f0" stroke="#475569" stroke-width="2" />
+    <polygon points="6,80 12,96 18,80" fill="#0f172a" />
+    <rect x="0" y="0" width="24" height="20" fill="url(#goldGrad)" />
+  </g>
+</svg>`;
+
+// Maskable SVG with safe zone padding
+const maskableSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#0f172a" />
+  <g transform="translate(51, 51) scale(0.8)">
+    ${svgContent.replace('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">', '').replace('</svg>', '')}
+  </g>
+</svg>`;
+
+async function main() {
+  const publicDir = path.resolve('public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+
+  // Save icon.svg
+  fs.writeFileSync(path.join(publicDir, 'icon.svg'), svgContent);
+  console.log('Created icon.svg');
+
+  // Generate 192x192
+  await sharp(Buffer.from(svgContent))
+    .resize(192, 192)
+    .png()
+    .toFile(path.join(publicDir, 'pwa-192x192.png'));
+  console.log('Created pwa-192x192.png');
+
+  // Generate 512x512
+  await sharp(Buffer.from(svgContent))
+    .resize(512, 512)
+    .png()
+    .toFile(path.join(publicDir, 'pwa-512x512.png'));
+  console.log('Created pwa-512x512.png');
+
+  // Generate maskable 512x512
+  await sharp(Buffer.from(maskableSvg))
+    .resize(512, 512)
+    .png()
+    .toFile(path.join(publicDir, 'pwa-maskable-512x512.png'));
+  console.log('Created pwa-maskable-512x512.png');
+
+  // Generate apple-touch-icon.png (180x180)
+  await sharp(Buffer.from(svgContent))
+    .resize(180, 180)
+    .png()
+    .toFile(path.join(publicDir, 'apple-touch-icon.png'));
+  console.log('Created apple-touch-icon.png');
+
+  // Generate favicon.ico / png
+  await sharp(Buffer.from(svgContent))
+    .resize(64, 64)
+    .png()
+    .toFile(path.join(publicDir, 'favicon.png'));
+  console.log('Created favicon.png');
+}
+
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});

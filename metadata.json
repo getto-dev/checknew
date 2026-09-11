@@ -1,0 +1,6 @@
+{
+  "name": "СметаПро — Строительные сметы",
+  "description": "Профессиональное PWA-приложение для составления строительных смет с каталогом работ и материалов, офлайн-режимом и экспортом в PDF/JSON/HTML.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
