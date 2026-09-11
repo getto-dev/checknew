@@ -18,6 +18,13 @@ function hasText(value: unknown, maxLength: number, allowEmpty = false): value i
   return allowEmpty || value.trim().length > 0;
 }
 
+function normalizeEstimateItem(item: EstimateItem): EstimateItem {
+  return {
+    ...item,
+    total: Math.round(item.price * item.quantity),
+  };
+}
+
 export function isValidEstimateItem(value: unknown): value is EstimateItem {
   if (!value || typeof value !== 'object') return false;
 
@@ -65,10 +72,17 @@ export function isValidEstimate(value: unknown): value is Estimate {
 }
 
 export function parseStoredEstimate(value: unknown): Estimate | null {
-  return isValidEstimate(value) ? value : null;
+  if (!isValidEstimate(value)) return null;
+
+  return {
+    ...value,
+    items: value.items.map(normalizeEstimateItem),
+  };
 }
 
 export function filterValidEstimates(value: unknown): Estimate[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isValidEstimate);
+  return value
+    .map(parseStoredEstimate)
+    .filter((estimate): estimate is Estimate => estimate !== null);
 }
