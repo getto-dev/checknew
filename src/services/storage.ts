@@ -1,4 +1,5 @@
 import { Estimate, ProfileCatalog, ProfileMeta } from '../types';
+import { filterValidEstimates, parseStoredEstimate, isValidEstimate } from '../utils/validation';
 
 const DB_NAME = 'SmetaProDB';
 const DB_VERSION = 1;
@@ -59,7 +60,14 @@ class StorageService {
   // --- Estimates Storage ---
 
   async saveEstimate(estimate: Estimate): Promise<void> {
-    estimate.updatedAt = Date.now();
+    if (!isValidEstimate(estimate)) {
+      throw new Error('Attempted to save invalid estimate data');
+    }
+
+    const normalized: Estimate = {
+      ...estimate,
+      updatedAt: Date.now(),
+    };
 
     if (this.isIndexedDBAvailable) {
       try {
@@ -67,19 +75,18 @@ class StorageService {
         await new Promise<void>((resolve, reject) => {
           const tx = db.transaction(ESTIMATES_STORE, 'readwrite');
           const store = tx.objectStore(ESTIMATES_STORE);
-          const req = store.put(estimate);
+          const req = store.put(normalized);
           req.onsuccess = () => resolve();
           req.onerror = () => reject(req.error);
         });
-        // Also keep sync in localStorage fallback
-        this.saveToLocalStorageEstimates(estimate);
+        this.saveToLocalStorageEstimates(normalized);
         return;
       } catch (err) {
         console.warn('IndexedDB save failed, using localStorage fallback', err);
       }
     }
 
-    this.saveToLocalStorageEstimates(estimate);
+    this.saveToLocalStorageEstimates(normalized);
   }
 
   async getEstimate(id: string): Promise<Estimate | null> {
@@ -90,7 +97,7 @@ class StorageService {
           const tx = db.transaction(ESTIMATES_STORE, 'readonly');
           const store = tx.objectStore(ESTIMATES_STORE);
           const req = store.get(id);
-          req.onsuccess = () => resolve(req.result || null);
+          req.onsuccess = () => resolve(parseStoredEstimate(req.result));
           req.onerror = () => reject(req.error);
         });
         if (item) return item;
@@ -111,11 +118,10 @@ class StorageService {
           const tx = db.transaction(ESTIMATES_STORE, 'readonly');
           const store = tx.objectStore(ESTIMATES_STORE);
           const req = store.getAll();
-          req.onsuccess = () => resolve(req.result || []);
+          req.onsuccess = () => resolve(filterValidEstimates(req.result));
           req.onerror = () => reject(req.error);
         });
-        if (items && items.length > 0) {
-          // Sort descending by updatedAt
+        if (items.length > 0) {
           return items.sort((a, b) => b.updatedAt - a.updatedAt);
         }
       } catch (err) {
@@ -156,7 +162,7 @@ class StorageService {
   private getFromLocalStorageEstimates(): Estimate[] {
     try {
       const raw = localStorage.getItem(LOCALSTORAGE_ESTIMATES_KEY);
-      return raw ? JSON.parse(raw) : [];
+      return raw ? filterValidEstimates(JSON.parse(raw)) : [];
     } catch {
       return [];
     }
