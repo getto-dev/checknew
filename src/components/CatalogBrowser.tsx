@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Search, PlusCircle, X, Filter, Package, Wrench, Check } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Check, Filter, ListFilter, Package, PlusCircle, Search, Wrench, X } from 'lucide-react';
 import { CatalogItem, EstimateItem } from '../types';
 import { formatCurrency } from '../services/exportService';
 import { searchCatalogItems } from '../services/smartSearch';
@@ -11,7 +11,6 @@ interface CatalogBrowserProps {
   activeEstimateItems: EstimateItem[];
   onAddItem: (item: CatalogItem, quantity: number) => void;
   onOpenCustomModal: () => void;
-  profileName: string;
 }
 
 export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
@@ -20,14 +19,19 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
   activeEstimateItems,
   onAddItem,
   onOpenCustomModal,
-  profileName,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
 
-  // Fast map to check if item is already added to estimate
+  useEffect(() => {
+    if (selectedCategory !== 'all' && !categories.includes(selectedCategory)) {
+      setSelectedCategory('all');
+    }
+  }, [categories, selectedCategory]);
+
   const estimateQuantities = useMemo(() => {
     const map = new Map<string, number>();
     for (const item of activeEstimateItems) {
@@ -36,7 +40,6 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
     return map;
   }, [activeEstimateItems]);
 
-  // Smart search with Russian stemming, synonyms (slang) & typo tolerance
   const filteredItems = useMemo(() => {
     return searchCatalogItems(
       catalogItems,
@@ -64,10 +67,8 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
     const rawQty = itemQuantities[item.id] !== undefined ? itemQuantities[item.id] : 1;
     const qty = normalizeQuantity(rawQty);
     onAddItem(item, qty);
-    // Reset quantity back to 1 for that card
     setItemQuantities((prev) => ({ ...prev, [item.id]: 1 }));
 
-    // Flash feedback
     setRecentlyAddedId(item.id);
     setTimeout(() => {
       setRecentlyAddedId((prev) => (prev === item.id ? null : prev));
@@ -76,22 +77,21 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
 
   return (
     <div className="flex flex-col h-full rounded-2xl bg-slate-900 border border-slate-800 shadow-xl overflow-hidden">
-      {/* Pinned Top Bar inside Catalog */}
       <div className="p-3.5 sm:p-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur-xs space-y-3 flex-shrink-0">
-        {/* Title & Custom Item Button */}
         <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-1.5 truncate">
-              <span>Каталог:</span>
-              <span className="text-amber-400 truncate">{profileName}</span>
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Найдено: <span className="font-semibold text-slate-200">{filteredItems.length}</span> из {catalogItems.length}
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-xs font-semibold transition active:scale-95 cursor-pointer whitespace-nowrap"
+            title="Выбрать раздел каталога"
+          >
+            <ListFilter className="w-3.5 h-3.5" />
+            <span>Все разделы</span>
+          </button>
 
           <button
             id="add-custom-item-btn"
+            type="button"
             onClick={onOpenCustomModal}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-xs font-semibold transition active:scale-95 cursor-pointer whitespace-nowrap flex-shrink-0"
             title="Добавить свою позицию, которой нет в каталоге"
@@ -101,7 +101,6 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
           </button>
         </div>
 
-        {/* Search input */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -114,6 +113,7 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white rounded-md"
               title="Очистить поиск"
@@ -122,40 +122,8 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
             </button>
           )}
         </div>
-
-        {/* Categories horizontal pill list */}
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin scrollbar-thumb-slate-700">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
-              selectedCategory === 'all'
-                ? 'bg-amber-500 text-slate-950 border-amber-500 font-bold'
-                : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
-            }`}
-          >
-            Все разделы
-          </button>
-          {categories.map((cat) => {
-            const count = catalogItems.filter((i) => i.category === cat).length;
-            const isCatActive = selectedCategory === cat;
-            return (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
-                  isCatActive
-                    ? 'bg-amber-500 text-slate-950 border-amber-500 font-bold'
-                    : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
-                }`}
-              >
-                {cat} ({count})
-              </button>
-            );
-          })}
-        </div>
       </div>
 
-      {/* Catalog Items Scrollable List */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2.5 min-h-[300px]">
         {filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
@@ -165,6 +133,7 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
               Попробуйте другой запрос или добавьте позицию вручную.
             </p>
             <button
+              type="button"
               onClick={onOpenCustomModal}
               className="mt-3 px-3.5 py-1.5 rounded-lg bg-amber-500 text-slate-950 text-xs font-bold transition active:scale-95 cursor-pointer"
             >
@@ -189,15 +158,11 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
                     : 'bg-slate-950/60 border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/40'
                 }`}
               >
-                {/* Left: Info & Badges */}
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                    {/* Category */}
                     <span className="text-[10px] text-slate-400 font-medium truncate max-w-[180px]">
                       {item.category}
                     </span>
-
-                    {/* Work vs Material Badge */}
                     <span
                       className={`inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] font-semibold ${
                         isMaterial
@@ -215,8 +180,6 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
                         </>
                       )}
                     </span>
-
-                    {/* In estimate indicator */}
                     {inEstimateQty > 0 && (
                       <span className="flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-500/40 text-[10px] text-emerald-400 font-semibold">
                         <Check className="w-3 h-3" />
@@ -236,9 +199,7 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
                   )}
                 </div>
 
-                {/* Right: Price & Stepper Add */}
                 <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/60 flex-shrink-0">
-                  {/* Price */}
                   <div className="text-left sm:text-right">
                     <div className="text-xs sm:text-sm font-bold text-amber-400 font-mono">
                       {formatCurrency(item.price)}
@@ -248,7 +209,6 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
                     </div>
                   </div>
 
-                  {/* Stepper with 0.5 step + Add Button */}
                   <div className="flex items-center gap-1.5">
                     <div className="flex items-center rounded-lg bg-slate-900 border border-slate-700 p-0.5">
                       <button
@@ -295,6 +255,79 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
           })
         )}
       </div>
+
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-800 p-5 sm:p-6 shadow-2xl text-slate-100 relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                  <ListFilter className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Выберите раздел</h2>
+                  <p className="text-xs text-slate-400">Фильтр позиций каталога</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                aria-label="Закрыть"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setIsCategoryModalOpen(false);
+                }}
+                className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
+                  selectedCategory === 'all'
+                    ? 'bg-amber-500/15 border-amber-500/60 text-amber-300'
+                    : 'bg-slate-950 border-slate-700 text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <div>
+                  <div className="text-sm font-semibold">Все разделы</div>
+                  <div className="text-[11px] text-slate-400">Все позиции каталога · {catalogItems.length}</div>
+                </div>
+                {selectedCategory === 'all' && <Check className="w-4 h-4 flex-shrink-0" />}
+              </button>
+
+              {categories.map((category) => {
+                const count = catalogItems.filter((item) => item.category === category).length;
+                const isSelected = selectedCategory === category;
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(category);
+                      setIsCategoryModalOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
+                      isSelected
+                        ? 'bg-amber-500/15 border-amber-500/60 text-amber-300'
+                        : 'bg-slate-950 border-slate-700 text-slate-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold truncate">{category}</div>
+                      <div className="text-[11px] text-slate-400">Позиций: {count}</div>
+                    </div>
+                    {isSelected && <Check className="w-4 h-4 flex-shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
