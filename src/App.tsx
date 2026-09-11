@@ -194,7 +194,6 @@ export default function App() {
                 activeEstimateItems={estimate.items}
                 onAddItem={(item: CatalogItem, qty: number) => addItem(item, qty)}
                 onOpenCustomModal={() => setIsCustomItemModalOpen(true)}
-                profileName={currentCatalog?.name || 'Профиль'}
               />
             </div>
 
