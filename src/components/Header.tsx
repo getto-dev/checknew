@@ -1,13 +1,11 @@
 import React from 'react';
-import { Wrench, Zap, Paintbrush, Hammer, ChevronDown, FileDown, WifiOff } from 'lucide-react';
+import { Wrench, Zap, Paintbrush, Hammer, ChevronDown, Settings, Wifi, WifiOff } from 'lucide-react';
 import { ProfileMeta } from '../types';
-import { PWAInstallButton } from './PWAInstallButton';
-import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 interface HeaderProps {
   currentProfile: ProfileMeta | null;
   onOpenProfileSelector: () => void;
-  onOpenExport: () => void;
+  onOpenSettings: () => void;
 }
 
 const ICONS_MAP: Record<string, React.ReactNode> = {
@@ -20,9 +18,9 @@ const ICONS_MAP: Record<string, React.ReactNode> = {
 export const Header: React.FC<HeaderProps> = ({
   currentProfile,
   onOpenProfileSelector,
-  onOpenExport,
+  onOpenSettings,
 }) => {
-  const isOnline = useOnlineStatus();
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
   const icon = currentProfile?.icon ? ICONS_MAP[currentProfile.icon] : <Wrench className="w-4 h-4" />;
 
   return (
@@ -36,7 +34,6 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-base font-black text-white tracking-tight truncate">Смета<span className="text-amber-400">Про</span></span>
-                <span className="hidden sm:inline-block px-1.5 py-0.2 text-[10px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700">PWA</span>
               </div>
               <p className="hidden md:block text-[11px] text-slate-400 leading-none">Строительные сметы офлайн</p>
             </div>
@@ -56,38 +53,25 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           <div
-            className="flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1 rounded-lg text-[11px] font-medium text-slate-400 border border-slate-800 bg-slate-950 min-w-[28px]"
-            title={isOnline ? 'Подключено к сети' : 'Офлайн-режим (IndexedDB)'}
-            aria-label={isOnline ? 'Онлайн' : 'Офлайн'}
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center bg-slate-800/90 border border-slate-700"
+            title={isOnline ? 'Онлайн-режим' : 'Офлайн-режим'}
+            aria-label={isOnline ? 'Онлайн-режим' : 'Офлайн-режим'}
           >
-            {isOnline ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="hidden md:inline text-slate-300">Онлайн</span>
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-3 h-3 text-amber-400 animate-pulse" />
-                <span className="hidden md:inline text-amber-300">Офлайн</span>
-              </>
-            )}
+            {isOnline ? <Wifi className="w-4 h-4 text-emerald-400" /> : <WifiOff className="w-4 h-4 text-amber-400" />}
           </div>
 
           <button
-            id="export-top-btn"
+            id="settings-top-btn"
             type="button"
-            onClick={onOpenExport}
-            className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs sm:text-sm font-bold transition active:scale-95 cursor-pointer shadow-sm shadow-amber-500/10"
-            title="Экспорт в PDF и Бэкап"
-            aria-label="Экспорт в PDF и Бэкап"
+            onClick={onOpenSettings}
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition active:scale-95 cursor-pointer"
+            title="Настройки"
+            aria-label="Настройки"
           >
-            <FileDown className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Экспорт</span>
+            <Settings className="w-4.5 h-4.5" />
           </button>
-
-          <PWAInstallButton />
         </div>
       </div>
     </header>
