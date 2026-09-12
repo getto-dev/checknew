@@ -26,13 +26,11 @@ import {
 import { formatCurrency } from './services/exportService';
 
 export default function App() {
-  // Profiles catalog state
   const [profiles, setProfiles] = useState<ProfileMeta[]>([]);
   const [currentProfileId, setCurrentProfileId] = useState<string>('plumbing');
   const [currentCatalog, setCurrentCatalog] = useState<ProfileCatalog | null>(null);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
 
-  // Active Estimate state & business operations via custom hook
   const {
     estimate,
     totals,
@@ -42,21 +40,16 @@ export default function App() {
     deleteItem,
     clearEstimate,
     updateDiscount,
-    createNewEstimate,
     updateMetadata,
     restoreEstimate,
   } = useEstimate(currentProfileId, currentCatalog?.name || 'Сантехника');
 
-  // UI Modals state
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-
-  // Mobile view tab (catalog vs estimate)
   const [mobileTab, setMobileTab] = useState<'catalog' | 'estimate'>('catalog');
 
-  // Initial profiles catalog loading
   useEffect(() => {
     let isMounted = true;
 
@@ -83,13 +76,11 @@ export default function App() {
     }
 
     initCatalog();
-
     return () => {
       isMounted = false;
     };
   }, []);
 
-  // Profile change handler
   const handleSelectProfile = async (profileId: string) => {
     setIsLoadingCatalog(true);
     try {
@@ -97,12 +88,7 @@ export default function App() {
       setCurrentProfileId(profileId);
       setCurrentCatalog(cat);
       storage.setLastUsedProfileId(profileId);
-
-      // Update estimate profile metadata
-      updateMetadata({
-        profileId,
-        profileName: cat.name,
-      });
+      updateMetadata({ profileId, profileName: cat.name });
     } catch (e) {
       console.error('Failed to change profile:', e);
     } finally {
@@ -110,12 +96,10 @@ export default function App() {
     }
   };
 
-  // Add custom manual item
   const handleAddCustomItem = (itemData: Omit<EstimateItem, 'id' | 'total'>) => {
     addItem(itemData, itemData.quantity);
   };
 
-  // Restore imported estimate
   const handleRestoreEstimate = async (restored: any) => {
     await restoreEstimate(restored);
     if (restored.profileId && restored.profileId !== currentProfileId) {
@@ -129,29 +113,21 @@ export default function App() {
 
   return (
     <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-      {/* Offline Alert Banner */}
       <OfflineBanner />
-
-      {/* iOS Safari PWA Install Banner */}
       <IOSInstallBanner />
-
-      {/* Main App Navigation Header */}
       <Header
         currentProfile={currentProfileMeta}
         onOpenProfileSelector={() => setIsProfileModalOpen(true)}
         onOpenExport={() => setIsExportModalOpen(true)}
       />
 
-      {/* Mobile Tab Switcher (Visible on screens < lg) */}
       <div className="lg:hidden bg-slate-900 border-b border-slate-800 p-2 sticky top-[57px] z-30 no-print flex-shrink-0">
         <div className="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
           <button
             type="button"
             onClick={() => setMobileTab('catalog')}
             className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
-              mobileTab === 'catalog'
-                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                : 'text-slate-400 hover:text-white'
+              mobileTab === 'catalog' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
             <BookOpen className="w-4 h-4" />
@@ -161,9 +137,7 @@ export default function App() {
             type="button"
             onClick={() => setMobileTab('estimate')}
             className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
-              mobileTab === 'estimate'
-                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                : 'text-slate-400 hover:text-white'
+              mobileTab === 'estimate' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
@@ -172,7 +146,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Main Workspace Area */}
       <main className="flex-1 min-h-0 max-w-7xl w-full mx-auto p-3 sm:p-4 no-print flex flex-col">
         {isLoadingCatalog ? (
           <div className="flex flex-col items-center justify-center flex-1 text-slate-400">
@@ -181,12 +154,7 @@ export default function App() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0 items-stretch">
-            {/* Catalog Column (Left) */}
-            <div
-              className={`lg:col-span-6 xl:col-span-6 h-full flex flex-col min-h-0 ${
-                mobileTab === 'catalog' ? 'block' : 'hidden lg:flex'
-              }`}
-            >
+            <div className={`lg:col-span-6 xl:col-span-6 h-full flex flex-col min-h-0 ${mobileTab === 'catalog' ? 'block' : 'hidden lg:flex'}`}>
               <CatalogBrowser
                 catalogItems={currentCatalog?.items || []}
                 categories={currentCatalog?.categories || []}
@@ -196,13 +164,7 @@ export default function App() {
               />
             </div>
 
-            {/* Estimate Column (Right) */}
-            <div
-              className={`lg:col-span-6 xl:col-span-6 h-full flex flex-col min-h-0 space-y-3 ${
-                mobileTab === 'estimate' ? 'block' : 'hidden lg:flex'
-              }`}
-            >
-              {/* Estimate Totals and Controls */}
+            <div className={`lg:col-span-6 xl:col-span-6 h-full flex flex-col min-h-0 space-y-3 ${mobileTab === 'estimate' ? 'block' : 'hidden lg:flex'}`}>
               <EstimateSummary
                 items={estimate.items}
                 discount={estimate.discount}
@@ -212,9 +174,9 @@ export default function App() {
                 estimate={estimate}
                 onOpenCustomerInfo={() => setIsCustomerModalOpen(true)}
                 onOpenExportModal={() => setIsExportModalOpen(true)}
+                onClearAll={clearEstimate}
               />
 
-              {/* Estimate Items Table */}
               <EstimateTable
                 items={estimate.items}
                 onUpdateQuantity={updateItemQuantity}
@@ -228,18 +190,12 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Bottom Bar on Mobile when browsing Catalog */}
       {mobileTab === 'catalog' && estimate.items.length > 0 && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 p-2.5 bg-slate-950/95 border-t border-slate-800 backdrop-blur-md z-40 no-print flex items-center justify-between gap-3 shadow-2xl">
           <div>
-            <div className="text-[11px] text-slate-400">
-              В смете: <span className="text-white font-bold">{estimate.items.length} поз.</span>
-            </div>
-            <div className="text-base font-black text-amber-400 font-mono">
-              {formatCurrency(totals.grandTotal)}
-            </div>
+            <div className="text-[11px] text-slate-400">В смете: <span className="text-white font-bold">{estimate.items.length} поз.</span></div>
+            <div className="text-base font-black text-amber-400 font-mono">{formatCurrency(totals.grandTotal)}</div>
           </div>
-
           <button
             type="button"
             onClick={() => setMobileTab('estimate')}
@@ -251,7 +207,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Modals */}
       <ProfileSelectorModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
@@ -260,21 +215,18 @@ export default function App() {
         onSelectProfile={handleSelectProfile}
         estimateItemCount={estimate.items.length}
       />
-
       <AddCustomItemModal
         isOpen={isCustomItemModalOpen}
         onClose={() => setIsCustomItemModalOpen(false)}
         onAddItem={handleAddCustomItem}
         defaultCategories={currentCatalog?.categories || []}
       />
-
       <CustomerInfoModal
         isOpen={isCustomerModalOpen}
         onClose={() => setIsCustomerModalOpen(false)}
         estimate={estimate}
         onSave={updateMetadata}
       />
-
       <ExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
