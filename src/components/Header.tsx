@@ -1,6 +1,7 @@
 import React from 'react';
 import { Wrench, Zap, Paintbrush, Hammer, ChevronDown, Settings, Wifi, WifiOff } from 'lucide-react';
 import { ProfileMeta } from '../types';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 interface HeaderProps {
   currentProfile: ProfileMeta | null;
@@ -20,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfileSelector,
   onOpenSettings,
 }) => {
-  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  const isOnline = useOnlineStatus();
   const icon = currentProfile?.icon ? ICONS_MAP[currentProfile.icon] : <Wrench className="w-4 h-4" />;
 
   return (
@@ -55,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           <div
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center bg-slate-800/90 border border-slate-700"
+            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border ${isOnline ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-amber-500/10 border-amber-500/25'}`}
             title={isOnline ? 'Онлайн-режим' : 'Офлайн-режим'}
             aria-label={isOnline ? 'Онлайн-режим' : 'Офлайн-режим'}
           >
