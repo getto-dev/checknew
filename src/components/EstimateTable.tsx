@@ -23,6 +23,8 @@ export const EstimateTable: React.FC<EstimateTableProps> = ({
 }) => {
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState(0);
+  const [editingQuantityId, setEditingQuantityId] = useState<string | null>(null);
+  const [tempQuantity, setTempQuantity] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
 
@@ -55,15 +57,26 @@ export const EstimateTable: React.FC<EstimateTableProps> = ({
     setEditingPriceId(null);
   };
 
+  const startEditQuantity = (item: EstimateItem) => {
+    setEditingQuantityId(item.id);
+    setTempQuantity(String(item.quantity));
+  };
+
+  const saveQuantity = (itemId: string, fallback: number) => {
+    const parsed = parseFloat(tempQuantity.replace(',', '.'));
+    const next = Number.isFinite(parsed) && parsed > 0 ? normalizeQuantity(parsed) : fallback;
+    onUpdateQuantity(itemId, next);
+    setEditingQuantityId(null);
+    setTempQuantity('');
+  };
+
   const handleStepQuantity = (item: EstimateItem, direction: -1 | 1) => {
     onUpdateQuantity(item.id, changeQuantity(item.quantity, direction, 0.5));
   };
 
-  const handleManualQuantityChange = (itemId: string, value: string) => {
-    const parsed = parseFloat(value.replace(',', '.'));
-    if (Number.isFinite(parsed) && parsed > 0) {
-      onUpdateQuantity(itemId, normalizeQuantity(parsed));
-    }
+  const handleManualQuantityChange = (item: EstimateItem, value: string) => {
+    setEditingQuantityId(item.id);
+    setTempQuantity(value);
   };
 
   if (items.length === 0) {
@@ -90,6 +103,9 @@ export const EstimateTable: React.FC<EstimateTableProps> = ({
           <h3 className="text-sm font-bold text-white">Позиции сметы</h3>
           <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-bold font-mono">{items.length}</span>
         </div>
+      </div>
+
+      <div className="flex items-center justify-end px-4 py-2 border-b border-slate-800 bg-slate-900/95 flex-shrink-0">
         {isConfirmingClear ? (
           <div className="flex items-center gap-1.5 bg-red-500/15 border border-red-500/40 px-2 py-1 rounded-lg text-xs">
             <span className="text-red-300 font-medium">Очистить всё?</span>
@@ -122,6 +138,7 @@ export const EstimateTable: React.FC<EstimateTableProps> = ({
                 <div className="space-y-1.5 pt-0.5">
                   {categoryItems.map(({ item, index }) => {
                     const isEditingPrice = editingPriceId === item.id;
+                    const isEditingQuantity = editingQuantityId === item.id;
                     const isMaterial = item.type === 'material';
                     return (
                       <div key={item.id} className="group relative rounded-xl border border-slate-800/90 bg-slate-900/80 p-2.5 sm:p-3 hover:border-slate-700 transition">
@@ -141,7 +158,17 @@ export const EstimateTable: React.FC<EstimateTableProps> = ({
                           <div className="flex items-center justify-between sm:justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80 flex-shrink-0">
                             <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 p-0.5">
                               <button type="button" onClick={() => handleStepQuantity(item, -1)} title="Уменьшить" className="w-5 h-6 flex items-center justify-center text-slate-400 hover:text-white rounded text-xs font-bold">-</button>
-                              <input type="text" value={formatQuantity(item.quantity)} onChange={(e) => handleManualQuantityChange(item.id, e.target.value)} className="w-7 text-center text-xs font-semibold text-white bg-transparent focus:outline-none font-mono" title="Количество" />
+                              <input
+                                type="text"
+                                value={isEditingQuantity ? tempQuantity : formatQuantity(item.quantity)}
+                                onFocus={() => startEditQuantity(item)}
+                                onChange={(e) => handleManualQuantityChange(item, e.target.value)}
+                                onBlur={() => saveQuantity(item.id, item.quantity)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveQuantity(item.id, item.quantity); } }}
+                                className="w-9 text-center text-xs font-semibold text-white bg-transparent focus:outline-none font-mono"
+                                title="Количество"
+                                inputMode="decimal"
+                              />
                               <button type="button" onClick={() => handleStepQuantity(item, 1)} title="Увеличить" className="w-5 h-6 flex items-center justify-center text-slate-400 hover:text-white rounded text-xs font-bold">+</button>
                             </div>
                             <span className="text-[10px] text-slate-400 font-medium w-7 text-left">{item.unit}</span>
