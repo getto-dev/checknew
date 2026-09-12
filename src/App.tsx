@@ -9,8 +9,6 @@ import { fetchProfilesList, fetchProfileCatalog } from './services/profileServic
 import { storage } from './services/storage';
 import { useEstimate } from './hooks/useEstimate';
 import { Header } from './components/Header';
-import { OfflineBanner } from './components/OfflineBanner';
-import { IOSInstallBanner } from './components/IOSInstallBanner';
 import { CatalogBrowser } from './components/CatalogBrowser';
 import { EstimateTable } from './components/EstimateTable';
 import { EstimateSummary } from './components/EstimateSummary';
@@ -18,6 +16,7 @@ import { ProfileSelectorModal } from './components/ProfileSelectorModal';
 import { AddCustomItemModal } from './components/AddCustomItemModal';
 import { CustomerInfoModal } from './components/CustomerInfoModal';
 import { ExportModal } from './components/ExportModal';
+import { SettingsModal } from './components/SettingsModal';
 import {
   ShoppingBag,
   BookOpen,
@@ -48,6 +47,7 @@ export default function App() {
   const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'catalog' | 'estimate'>('catalog');
 
   useEffect(() => {
@@ -113,12 +113,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-      <OfflineBanner />
-      <IOSInstallBanner />
       <Header
         currentProfile={currentProfileMeta}
         onOpenProfileSelector={() => setIsProfileModalOpen(true)}
-        onOpenExport={() => setIsExportModalOpen(true)}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
 
       <div className="lg:hidden bg-slate-900 border-b border-slate-800 p-2 sticky top-[57px] z-30 no-print flex-shrink-0">
@@ -232,6 +230,10 @@ export default function App() {
         onClose={() => setIsExportModalOpen(false)}
         estimate={estimate}
         onRestoreEstimate={handleRestoreEstimate}
+      />
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
       />
     </div>
   );
