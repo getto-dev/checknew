@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Percent, FileDown, Settings, Download, Wrench, Package, Loader2 } from 'lucide-react';
+import { Percent, FileDown, Settings, Download, Wrench, Package, Loader2, Trash2 } from 'lucide-react';
 import { Estimate, EstimateItem } from '../types';
 import { formatCurrency, generateAndDownloadVectorPDF } from '../services/exportService';
 
@@ -12,6 +12,7 @@ interface EstimateSummaryProps {
   estimate: Estimate;
   onOpenCustomerInfo: () => void;
   onOpenExportModal: () => void;
+  onClearAll: () => void;
 }
 
 const DISCOUNT_PRESETS = [0, 5, 10, 15];
@@ -25,8 +26,10 @@ export const EstimateSummary: React.FC<EstimateSummaryProps> = ({
   estimate,
   onOpenCustomerInfo,
   onOpenExportModal,
+  onClearAll,
 }) => {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const servicesSum = items
     .filter((i) => i.type === 'work' || !i.type)
     .reduce((acc, i) => acc + i.total, 0);
@@ -95,7 +98,7 @@ export const EstimateSummary: React.FC<EstimateSummaryProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
+      <div className="flex items-center justify-between gap-2 bg-slate-950/60 px-2.5 py-1.5 rounded-xl border border-slate-800/80 text-xs">
         <div className="flex items-center gap-1.5 text-slate-400 text-[11px] truncate max-w-[210px]">
           <Settings className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
           <span className="truncate">{estimate.address || estimate.customer ? <span className="text-slate-200 font-medium">{estimate.address || estimate.customer}</span> : <span className="text-slate-500">Объект / Заказчик не указаны</span>}</span>
@@ -104,12 +107,23 @@ export const EstimateSummary: React.FC<EstimateSummaryProps> = ({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-0.5">
-        <button onClick={handleFastDownloadPdf} disabled={isDownloadingPdf || items.length === 0} className="sm:col-span-7 flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 py-2.5 px-3 text-xs sm:text-sm font-bold text-slate-950 transition active:scale-95 shadow-md shadow-amber-500/15 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" title="Скачать официальный PDF-бланк для отправки заказчику">
+        <button onClick={handleFastDownloadPdf} disabled={isDownloadingPdf || items.length === 0} className="sm:col-span-5 flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 py-2.5 px-3 text-xs sm:text-sm font-bold text-slate-950 transition active:scale-95 shadow-md shadow-amber-500/15 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" title="Скачать официальный PDF-бланк для отправки заказчику">
           {isDownloadingPdf ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Формирование...</span></> : <><Download className="w-4 h-4" /><span>Скачать PDF</span></>}
         </button>
-        <button onClick={onOpenExportModal} className="sm:col-span-5 flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/30 bg-slate-800/90 hover:bg-slate-700 py-2.5 px-2 text-xs font-semibold text-sky-400 transition active:scale-95 cursor-pointer" title="Экспорт в PDF и создание файла Бэкапа">
+        <button onClick={onOpenExportModal} className="sm:col-span-4 flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/30 bg-slate-800/90 hover:bg-slate-700 py-2.5 px-2 text-xs font-semibold text-sky-400 transition active:scale-95 cursor-pointer" title="Создать файл Бэкапа или импортировать смету">
           <FileDown className="w-3.5 h-3.5" /><span>Бэкап / Экспорт</span>
         </button>
+        {isConfirmingClear ? (
+          <div className="sm:col-span-3 flex items-center gap-1 rounded-xl border border-red-500/40 bg-red-500/10 px-2 py-1.5">
+            <button type="button" onClick={() => { onClearAll(); setIsConfirmingClear(false); }} className="flex-1 rounded-lg bg-red-500 text-white py-1.5 text-xs font-bold">Да</button>
+            <button type="button" onClick={() => setIsConfirmingClear(false)} className="flex-1 rounded-lg bg-slate-800 text-slate-300 py-1.5 text-xs font-semibold">Нет</button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setIsConfirmingClear(true)} className="sm:col-span-3 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/30 bg-slate-800/90 hover:bg-red-500/10 hover:border-red-500/50 py-2.5 px-2 text-xs font-semibold text-red-300 transition active:scale-95 cursor-pointer" title="Очистить все позиции сметы">
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Очистить смету</span>
+          </button>
+        )}
       </div>
     </div>
   );
