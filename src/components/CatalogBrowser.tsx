@@ -25,6 +25,7 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [itemQuantities, setItemQuantities] = useState<Record<string, number | ''>>({});
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
+  const [mobileReplaceNextInput, setMobileReplaceNextInput] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (selectedCategory !== 'all' && !categories.includes(selectedCategory)) {
@@ -80,6 +81,44 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
       }
       return { ...prev, [itemId]: normalizeQuantity(current) };
     });
+    setMobileReplaceNextInput((prev) => ({ ...prev, [itemId]: false }));
+  };
+
+  const handleManualQtyFocus = (itemId: string, input: HTMLInputElement) => {
+    const isTouchDevice = typeof window !== 'undefined'
+      && (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
+
+    if (isTouchDevice) {
+      setMobileReplaceNextInput((prev) => ({ ...prev, [itemId]: true }));
+      input.setSelectionRange(input.value.length, input.value.length);
+      return;
+    }
+
+    input.select();
+  };
+
+  const handleManualQtyChange = (itemId: string, valueStr: string) => {
+    const shouldReplace = mobileReplaceNextInput[itemId];
+    if (shouldReplace) {
+      const normalized = valueStr.replace(',', '.');
+      const currentValue = itemQuantities[itemId];
+      if (typeof currentValue === 'number' && currentValue === 1 && /^1\d*\.?\d*$/.test(normalized)) {
+        const replaced = normalized.slice(1);
+        if (replaced === '') {
+          setMobileReplaceNextInput((prev) => ({ ...prev, [itemId]: false }));
+          setItemQuantities((prev) => ({ ...prev, [itemId]: '' }));
+          return;
+        }
+        setMobileReplaceNextInput((prev) => ({ ...prev, [itemId]: false }));
+        handleManualQtyInput(itemId, replaced);
+        return;
+      }
+      if (normalized !== '1') {
+        setMobileReplaceNextInput((prev) => ({ ...prev, [itemId]: false }));
+      }
+    }
+
+    handleManualQtyInput(itemId, valueStr);
   };
 
   const handleAdd = (item: CatalogItem) => {
@@ -87,6 +126,7 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
     const qty = normalizeQuantity(typeof rawQty === 'number' && Number.isFinite(rawQty) ? rawQty : 1);
     onAddItem(item, qty);
     setItemQuantities((prev) => ({ ...prev, [item.id]: 1 }));
+    setMobileReplaceNextInput((prev) => ({ ...prev, [item.id]: false }));
 
     setRecentlyAddedId(item.id);
     setTimeout(() => {
@@ -119,7 +159,7 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
           <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
             <Filter className="w-8 h-8 text-slate-600 mb-2" />
             <p className="text-sm font-medium text-slate-300">Ничего не найдено</p>
-            <p className="text-xs text-slate-500 max-w-xs mt-1">Попробуйте другой запрос или добавьте позицию вручную.</p>
+            <p className="text-xs text-slate-500 mt-1">Попробуйте другой запрос или добавьте позицию вручную.</p>
             <button type="button" onClick={onOpenCustomModal} className="mt-3 px-3.5 py-1.5 rounded-lg bg-amber-500 text-slate-950 text-xs font-bold transition active:scale-95 cursor-pointer">+ Добавить вручную</button>
           </div>
         ) : (
@@ -147,7 +187,17 @@ export const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
                   <div className="flex items-center gap-1.5">
                     <div className="flex items-center rounded-lg bg-slate-900 border border-slate-700 p-0.5">
                       <button type="button" onClick={() => handleQtyChange(item.id, -1, 0.5)} title="Уменьшить" className="w-5 h-6 flex items-center justify-center text-slate-400 hover:text-white rounded hover:bg-slate-800 text-xs font-bold active:scale-95 cursor-pointer">-</button>
-                      <input type="text" inputMode="decimal" value={currentQty} onChange={(e) => handleManualQtyInput(item.id, e.target.value)} onFocus={(e) => e.currentTarget.select()} onBlur={() => handleManualQtyBlur(item.id)} className="w-9 text-center text-xs font-semibold text-white bg-transparent focus:outline-none font-mono" title="Количество (можно дробное: 1.5, 2.5)" aria-label={`Количество: ${item.name}`} />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={currentQty}
+                        onChange={(e) => handleManualQtyChange(item.id, e.target.value)}
+                        onFocus={(e) => handleManualQtyFocus(item.id, e.currentTarget)}
+                        onBlur={() => handleManualQtyBlur(item.id)}
+                        className="w-9 text-center text-xs font-semibold text-white bg-transparent focus:outline-none font-mono"
+                        title="Количество (можно дробное: 1.5, 2.5)"
+                        aria-label={`Количество: ${item.name}`}
+                      />
                       <button type="button" onClick={() => handleQtyChange(item.id, 1, 0.5)} title="Увеличить" className="w-5 h-6 flex items-center justify-center text-slate-400 hover:text-white rounded hover:bg-slate-800 text-xs font-bold active:scale-95 cursor-pointer">+</button>
                     </div>
                     <button type="button" onClick={() => handleAdd(item)} className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer shadow-xs whitespace-nowrap ${isJustAdded ? 'bg-emerald-500 text-slate-950 font-bold' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'}`} title="Добавить в смету">{isJustAdded ? '✓ Добавлено' : 'В смету'}</button>
