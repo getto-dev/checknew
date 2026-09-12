@@ -26,7 +26,6 @@ export const EstimateTable: React.FC<EstimateTableProps> = ({
   const [editingQuantityId, setEditingQuantityId] = useState<string | null>(null);
   const [tempQuantity, setTempQuantity] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
-  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
 
   const categorizedGroups = useMemo(() => {
     const map = new Map<string, { category: string; items: { item: EstimateItem; index: number }[]; sum: number }>();
@@ -98,26 +97,11 @@ export const EstimateTable: React.FC<EstimateTableProps> = ({
 
   return (
     <div className="flex-1 flex flex-col rounded-2xl bg-slate-900 border border-slate-800 shadow-xl overflow-hidden min-h-0">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/95 flex-shrink-0">
+      <div className="flex items-center px-4 py-3 border-b border-slate-800 bg-slate-900/95 flex-shrink-0">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-bold text-white">Позиции сметы</h3>
           <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-bold font-mono">{items.length}</span>
         </div>
-      </div>
-
-      <div className="flex items-center justify-end px-4 py-2 border-b border-slate-800 bg-slate-900/95 flex-shrink-0">
-        {isConfirmingClear ? (
-          <div className="flex items-center gap-1.5 bg-red-500/15 border border-red-500/40 px-2 py-1 rounded-lg text-xs">
-            <span className="text-red-300 font-medium">Очистить всё?</span>
-            <button type="button" onClick={() => { onClearAll(); setIsConfirmingClear(false); }} className="bg-red-500 text-white font-bold px-2 py-0.5 rounded text-[11px]">Да</button>
-            <button type="button" onClick={() => setIsConfirmingClear(false)} className="text-slate-400 px-1.5 py-0.5 text-[11px]">Отмена</button>
-          </div>
-        ) : (
-          <button type="button" onClick={() => setIsConfirmingClear(true)} className="text-xs text-slate-400 hover:text-red-400 flex items-center gap-1.5 px-2 py-1 rounded-lg" title="Удалить все позиции">
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Очистить смету</span>
-          </button>
-        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 pr-2 min-h-0">
