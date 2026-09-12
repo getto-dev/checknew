@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-1.5">
                 <span className="text-base font-black text-white tracking-tight truncate">Смета<span className="text-amber-400">Про</span></span>
               </div>
-              <p className="hidden md:block text-[11px] text-slate-400 leading-none">Строительные сметы офлайн</p>
+              <p className="hidden md:block text-[11px] text-slate-400 leading-none">Строительные сметы</p>
             </div>
           </div>
 
