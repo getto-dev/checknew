@@ -4,6 +4,7 @@
   "description": "СметаПро — PWA для строительных смет",
   "private": true,
   "type": "module",
+  "packageManager": "npm@10.9.8",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "predev": "node scripts/generate-icons.js",
