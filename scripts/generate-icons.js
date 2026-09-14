@@ -15,20 +15,25 @@ async function main() {
   }
 
   const svgContent = fs.readFileSync(iconPath, 'utf8');
-  const maskableSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" fill="#123bcf"/>
-  <g transform="translate(51.2 51.2) scale(0.8)">
-    ${svgContent.replace(/<svg[^>]*>/, '').replace('</svg>', '')}
-  </g>
-</svg>`;
 
-  await sharp(Buffer.from(svgContent)).resize(192, 192).png().toFile(path.join(publicDir, 'pwa-192x192.png'));
-  await sharp(Buffer.from(svgContent)).resize(512, 512).png().toFile(path.join(publicDir, 'pwa-512x512.png'));
-  await sharp(Buffer.from(maskableSvg)).resize(512, 512).png().toFile(path.join(publicDir, 'pwa-maskable-512x512.png'));
-  await sharp(Buffer.from(svgContent)).resize(180, 180).png().toFile(path.join(publicDir, 'apple-touch-icon.png'));
-  await sharp(Buffer.from(svgContent)).resize(64, 64).png().toFile(path.join(publicDir, 'favicon.png'));
+  // Keep every app icon visually identical to the source icon from getto-dev/check.
+  // Do not create a separate/modified maskable design.
+  const outputs = [
+    ['pwa-192x192.png', 192],
+    ['pwa-512x512.png', 512],
+    ['pwa-maskable-512x512.png', 512],
+    ['apple-touch-icon.png', 180],
+    ['favicon.png', 64],
+  ];
 
-  console.log('Generated PWA/app icons from public/icon.svg');
+  for (const [filename, size] of outputs) {
+    await sharp(Buffer.from(svgContent))
+      .resize(size, size)
+      .png()
+      .toFile(path.join(publicDir, filename));
+  }
+
+  console.log('Generated all PWA/app icons from public/icon.svg');
 }
 
 main().catch((err) => {
