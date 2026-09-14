@@ -1,44 +1,12 @@
 import { ProfileCatalog, ProfileMeta, CatalogItem } from '../types';
 import { storage } from './storage';
-import { fetchRemoteProfileCatalog, REMOTE_PROFILE_IDS } from './dataRepository';
+import { fetchRemoteProfileCatalog } from './dataRepository';
 
 const FALLBACK_PROFILES_META: ProfileMeta[] = [
-  {
-    id: 'plumbing',
-    name: 'Сантехника',
-    description: 'Монтаж водопровода, канализации, отопления, санфаянса и оборудования',
-    icon: 'Wrench',
-    color: 'sky',
-    catalogPath: '/data/profiles/plumbing/catalog.json',
-    categories: ['Разводка труб и водопровод', 'Канализация и водоотведение', 'Отопление и теплый пол', 'Установка сантехники', 'Фильтрация и учет воды', 'Демонтажные работы'],
-  },
-  {
-    id: 'electrical',
-    name: 'Электрика',
-    description: 'Электромонтажные работы, разводка кабелей, сборка щитов, освещение и розетки',
-    icon: 'Zap',
-    color: 'amber',
-    catalogPath: '/data/profiles/electrical/catalog.json',
-    categories: ['Черновой электромонтаж', 'Сборка и монтаж электрощита', 'Чистовой монтаж (розетки/выключатели)', 'Освещение и подсветка', 'Кабельная продукция и материалы', 'Слаботочные сети и безопасность'],
-  },
-  {
-    id: 'finishing',
-    name: 'Отделочные работы',
-    description: 'Штукатурка, шпаклевка, малярные работы, укладка плитки, напольные покрытия',
-    icon: 'Paintbrush',
-    color: 'emerald',
-    catalogPath: '/data/profiles/finishing/catalog.json',
-    categories: ['Подготовительные и демонтажные работы', 'Штукатурные и малярные работы', 'Плиточные работы (кафель/керамогранит)', 'Полы и напольные покрытия', 'Гипсокартонные конструкции', 'Расходные и строительные смеси'],
-  },
-  {
-    id: 'construction',
-    name: 'Строительство',
-    description: 'Фундаменты, кладка стен, кровля, фасадные работы и общестроительные материалы',
-    icon: 'Hammer',
-    color: 'orange',
-    catalogPath: '/data/profiles/construction/catalog.json',
-    categories: ['Земляные работы и фундамент', 'Возведение стен и перегородок', 'Кровельные работы', 'Фасадные работы и утепление', 'Бетон и арматура', 'Пиломатериалы и крепеж'],
-  },
+  { id: 'plumbing', name: 'Сантехника', description: 'Монтаж водопровода, канализации, отопления, санфаянса и оборудования', icon: 'Wrench', color: 'sky', catalogPath: '', categories: ['Разводка труб и водопровод', 'Канализация и водоотведение', 'Отопление и теплый пол', 'Установка сантехники', 'Фильтрация и учет воды', 'Демонтажные работы'] },
+  { id: 'electrical', name: 'Электрика', description: 'Электромонтажные работы, разводка кабелей, сборка щитов, освещение и розетки', icon: 'Zap', color: 'amber', catalogPath: '', categories: ['Черновой электромонтаж', 'Сборка и монтаж электрощита', 'Чистовой монтаж (розетки/выключатели)', 'Освещение и подсветка', 'Кабельная продукция и материалы', 'Слаботочные сети и безопасность'] },
+  { id: 'finishing', name: 'Отделочные работы', description: 'Штукатурка, шпаклевка, малярные работы, укладка плитки, напольные покрытия', icon: 'Paintbrush', color: 'emerald', catalogPath: '', categories: ['Подготовительные и демонтажные работы', 'Штукатурные и малярные работы', 'Плиточные работы (кафель/керамогранит)', 'Полы и напольные покрытия', 'Гипсокартонные конструкции', 'Расходные и строительные смеси'] },
+  { id: 'construction', name: 'Строительство', description: 'Фундаменты, кладка стен, кровля, фасадные работы и общестроительные материалы', icon: 'Hammer', color: 'orange', catalogPath: '', categories: ['Земляные работы и фундамент', 'Возведение стен и перегородок', 'Кровельные работы', 'Фасадные работы и утепление', 'Бетон и арматура', 'Пиломатериалы и крепеж'] },
 ];
 
 const PROFILE_ID_RE = /^[a-z0-9_-]{1,64}$/i;
@@ -71,22 +39,9 @@ export function validateProfileMeta(data: unknown): ProfileMeta[] {
     seenIds.add(id);
     if (!name || name.length > MAX_PROFILE_NAME_LENGTH) throw new Error(`Профиль ${id} имеет неверное название`);
     if (!Array.isArray(p.categories)) throw new Error(`Профиль ${id} не имеет списка категорий`);
-    const categories = p.categories
-      .filter((category): category is string => typeof category === 'string')
-      .map((category) => category.trim())
-      .filter(Boolean);
-    if (categories.length !== p.categories.length || categories.some((category) => category.length > MAX_CATEGORY_LENGTH)) {
-      throw new Error(`Профиль ${id} содержит некорректную категорию`);
-    }
-    return {
-      id,
-      name,
-      description: typeof p.description === 'string' ? p.description.slice(0, MAX_DESCRIPTION_LENGTH) : '',
-      icon: typeof p.icon === 'string' && p.icon.length <= 50 ? p.icon : 'Wrench',
-      color: typeof p.color === 'string' && p.color.length <= 50 ? p.color : 'blue',
-      catalogPath: typeof p.catalogPath === 'string' && p.catalogPath.length <= 500 ? p.catalogPath : `/data/profiles/${id}/catalog.json`,
-      categories,
-    };
+    const categories = p.categories.filter((category): category is string => typeof category === 'string').map((category) => category.trim()).filter(Boolean);
+    if (categories.length !== p.categories.length || categories.some((category) => category.length > MAX_CATEGORY_LENGTH)) throw new Error(`Профиль ${id} содержит некорректную категорию`);
+    return { id, name, description: typeof p.description === 'string' ? p.description.slice(0, MAX_DESCRIPTION_LENGTH) : '', icon: typeof p.icon === 'string' && p.icon.length <= 50 ? p.icon : 'Wrench', color: typeof p.color === 'string' && p.color.length <= 50 ? p.color : 'blue', catalogPath: typeof p.catalogPath === 'string' ? p.catalogPath : '', categories };
   });
 }
 
@@ -120,34 +75,9 @@ export function validateProfileCatalog(data: unknown): ProfileCatalog {
     if (!Number.isFinite(price) || price < 0) throw new Error(`Позиция ${itemId} имеет неверную цену`);
     if (item.description !== undefined && (typeof item.description !== 'string' || item.description.length > MAX_ITEM_DESCRIPTION_LENGTH)) throw new Error(`Позиция ${itemId} имеет слишком длинное описание`);
     if (item.code !== undefined && (typeof item.code !== 'string' || item.code.length > MAX_ITEM_CODE_LENGTH)) throw new Error(`Позиция ${itemId} имеет неверный код`);
-    validItems.push({
-      id: itemId,
-      name: itemName,
-      category,
-      unit,
-      price,
-      type: item.type === 'material' ? 'material' : 'work',
-      description: typeof item.description === 'string' ? item.description : undefined,
-      code: typeof item.code === 'string' ? item.code : undefined,
-    });
+    validItems.push({ id: itemId, name: itemName, category, unit, price, type: item.type === 'material' ? 'material' : 'work', description: typeof item.description === 'string' ? item.description : undefined, code: typeof item.code === 'string' ? item.code : undefined });
   }
-
-  return {
-    id,
-    name,
-    description: typeof cat.description === 'string' ? cat.description.slice(0, MAX_DESCRIPTION_LENGTH) : '',
-    icon: typeof cat.icon === 'string' && cat.icon.length <= 50 ? cat.icon : 'Wrench',
-    categories: Array.isArray(cat.categories)
-      ? cat.categories.filter((category): category is string => typeof category === 'string').map((category) => category.trim()).filter(Boolean).filter((category) => category.length <= MAX_CATEGORY_LENGTH)
-      : [],
-    items: validItems,
-  };
-}
-
-async function fetchLocalProfileCatalog(profileId: string): Promise<ProfileCatalog> {
-  const res = await fetch(`${cleanBase}data/profiles/${profileId}/catalog.json`);
-  if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-  return validateProfileCatalog(await res.json());
+  return { id, name, description: typeof cat.description === 'string' ? cat.description.slice(0, MAX_DESCRIPTION_LENGTH) : '', icon: typeof cat.icon === 'string' && cat.icon.length <= 50 ? cat.icon : 'Wrench', categories: Array.isArray(cat.categories) ? cat.categories.filter((category): category is string => typeof category === 'string').map((category) => category.trim()).filter(Boolean).filter((category) => category.length <= MAX_CATEGORY_LENGTH) : [], items: validItems };
 }
 
 export async function fetchProfilesList(): Promise<ProfileMeta[]> {
@@ -173,25 +103,17 @@ export async function fetchProfileCatalog(profileId: string): Promise<ProfileCat
 
   const cached = await storage.getCachedProfile(safeProfileId);
   const uiMeta = getFallbackProfileMeta(safeProfileId);
+  if (!uiMeta) throw new Error(`Профиль «${safeProfileId}» не найден.`);
 
   try {
-    const catalog = REMOTE_PROFILE_IDS.has(safeProfileId) && uiMeta
-      ? await fetchRemoteProfileCatalog(safeProfileId, { description: uiMeta.description, icon: uiMeta.icon })
-      : await fetchLocalProfileCatalog(safeProfileId);
+    const catalog = await fetchRemoteProfileCatalog(safeProfileId, { description: uiMeta.description, icon: uiMeta.icon });
     await storage.saveCachedProfile(catalog);
     return catalog;
   } catch (err) {
-    console.warn(`Fetch catalog for ${safeProfileId} failed, using cached or bundled fallback`, err);
+    console.warn(`Remote catalog for ${safeProfileId} failed, using cached catalog`, err);
     if (cached) {
       try { return validateProfileCatalog(cached); } catch (cacheError) { console.warn(`Cached catalog for ${safeProfileId} is invalid`, cacheError); }
     }
-    // Keep the bundled catalog as a first-install/offline fallback even after
-    // the profile has moved to the shared remote repository.
-    try {
-      return await fetchLocalProfileCatalog(safeProfileId);
-    } catch (localError) {
-      console.warn(`Bundled catalog for ${safeProfileId} is unavailable`, localError);
-    }
-    throw new Error(`Каталог «${safeProfileId}» не найден ни в сети, ни в кеше.`);
+    throw new Error(`Каталог «${safeProfileId}» не найден в сети или кеше.`);
   }
 }
