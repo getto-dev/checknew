@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dataRoot = path.join(root, 'data');
+const dataRoot = path.join(root, 'public', 'data');
 const profilesPath = path.join(dataRoot, 'profiles.json');
 const MAX_ITEMS = 100000;
 const PROFILE_ID_RE = /^[a-z0-9_-]{1,64}$/i;
@@ -17,7 +17,7 @@ const fail = (message) => {
 try {
   const profiles = readJson(profilesPath);
   if (!Array.isArray(profiles) || profiles.length === 0) {
-    fail('data/profiles.json must contain a non-empty array');
+    fail('public/data/profiles.json must contain a non-empty array');
   } else {
     const profileIds = new Set();
 
@@ -35,10 +35,10 @@ try {
       profileIds.add(id);
       if (!Array.isArray(profile.categories)) fail(`profiles.json: ${id} has no categories array`);
 
-      const expectedPath = `/${'data'}/profiles/${id}/catalog.json`;
+      const expectedPath = `/data/profiles/${id}/catalog.json`;
       if (catalogPath !== expectedPath) fail(`profiles.json: ${id} catalogPath must be ${expectedPath}`);
 
-      const catalogFile = path.join(root, catalogPath.replace(/^\//, ''));
+      const catalogFile = path.join(root, 'public', catalogPath.replace(/^\//, ''));
       if (!fs.existsSync(catalogFile)) {
         fail(`profiles.json: catalog file missing for ${id}: ${catalogPath}`);
         continue;
