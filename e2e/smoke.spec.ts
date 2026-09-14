@@ -15,6 +15,11 @@ test('catalog → estimate → quantity → discount → clear', async ({ page }
   await expect(addButton).toBeVisible();
   await addButton.click();
 
+  const mobileEstimateTab = page.getByRole('button', { name: /^Смета \(1\)$/ });
+  if (await mobileEstimateTab.isVisible().catch(() => false)) {
+    await mobileEstimateTab.click();
+  }
+
   await expect(page.getByRole('heading', { name: 'Позиции сметы' })).toBeVisible();
   const estimateQuantity = page.locator('input[title="Количество"]').first();
   await expect(estimateQuantity).toHaveValue('1');
@@ -22,12 +27,13 @@ test('catalog → estimate → quantity → discount → clear', async ({ page }
   await estimateQuantity.blur();
   await expect(estimateQuantity).toHaveValue('2.5');
 
-  await page.getByRole('button', { name: '10%' }).click();
+  await page.getByRole('button', { name: '10%', exact: true }).click();
   await expect(page.getByText('скидка 10%', { exact: false })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Очистить смету' }).click();
-  await expect(page.getByRole('button', { name: 'Да' })).toBeVisible();
-  await page.getByRole('button', { name: 'Да' }).click();
+  await page.getByRole('button', { name: 'Очистить смету', exact: true }).click();
+  const confirmYes = page.getByRole('button', { name: 'Да', exact: true }).filter({ visible: true }).last();
+  await expect(confirmYes).toBeVisible();
+  await confirmYes.click();
   await expect(page.getByRole('heading', { name: 'Смета пока пуста' })).toBeVisible();
 });
 
