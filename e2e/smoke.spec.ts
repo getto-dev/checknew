@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('catalog → estimate → quantity → discount → clear', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
 
   await expect(page.getByText('СметаПро', { exact: true })).toBeVisible();
   const addButton = page.getByRole('button', { name: 'В смету' }).first();
@@ -32,7 +32,7 @@ test('catalog → estimate → quantity → discount → clear', async ({ page }
 });
 
 test('settings opens and contains install action and Telegram contact', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('button', { name: 'Настройки' }).click();
 
   await expect(page.getByRole('heading', { name: 'Настройки' })).toBeVisible();
