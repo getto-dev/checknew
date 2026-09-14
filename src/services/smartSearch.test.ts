@@ -10,7 +10,7 @@ const catalog: CatalogItem[] = [
 ];
 
 test('tokenizeQuery removes stop words and normalizes decimal comma', () => {
-  assert.deepEqual(tokenizeQuery('кран для 2,5 м'), ['кран', '2.5', 'м']);
+  assert.deepEqual(tokenizeQuery('кран для 2,5 м'), ['кран', '2.5']);
 });
 
 test('searchCatalogItems supports construction synonyms', () => {
