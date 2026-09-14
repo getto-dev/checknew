@@ -1,7 +1,7 @@
 import { CatalogItem, ProfileCatalog } from '../types';
 
 export const REMOTE_DATA_BASE_URL = 'https://raw.githubusercontent.com/getto-dev/check-data/main/';
-export const REMOTE_PROFILE_IDS = new Set(['plumbing', 'electrical']);
+export const REMOTE_PROFILE_IDS = new Set(['plumbing', 'electrical', 'finishing', 'construction']);
 
 type RemoteManifest = {
   schemaVersion: number;
