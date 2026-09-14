@@ -25,8 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate catalog data
+      - name: Validate local catalog data
         run: npm run validate:data
+
+      - name: Validate remote catalog data
+        run: npm run validate:remote-data
 
       - name: Typecheck
         run: npm run lint
