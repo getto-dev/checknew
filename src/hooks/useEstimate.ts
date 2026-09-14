@@ -36,4 +36,5 @@ export function useEstimate(currentProfileId = 'plumbing', currentProfileName = 
   };
 }
 
+export type { EstimateTotals } from '../store/estimateStore';
 export { calculateEstimateTotals } from '../store/estimateStore';
