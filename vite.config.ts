@@ -14,13 +14,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: [
-          'favicon.png',
-          'apple-touch-icon.png',
-          'icon.svg',
-          'data/profiles.json',
-          'data/profiles/**/*.json',
-        ],
+        includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
           id: base,
           name: 'СметаПро — Строительные сметы',
@@ -73,20 +67,10 @@ export default defineConfig(() => {
             },
           ],
         },
-        devOptions: {
-          enabled: true,
-          type: 'module',
-        },
+        devOptions: { enabled: true, type: 'module' },
       }),
     ],
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      },
-    },
-    server: {
-      hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
-    },
+    resolve: { alias: { '@': path.resolve(__dirname, '.') } },
+    server: { hmr: process.env.DISABLE_HMR !== 'true', watch: process.env.DISABLE_HMR === 'true' ? null : {} },
   };
 });
