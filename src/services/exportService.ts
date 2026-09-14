@@ -1,9 +1,12 @@
 import { Estimate, EstimateItem } from '../types';
-import { generateAndDownloadVectorPDF, getEstimateNumber } from './pdfExportService';
 import { formatQuantity } from '../utils/quantity';
 import { isValidEstimate, MAX_ESTIMATE_ITEMS } from '../utils/validation';
 
-export { generateAndDownloadVectorPDF };
+/** Loads the heavy PDF exporter only when a PDF is actually requested. */
+export async function generateAndDownloadVectorPDF(estimate: Estimate): Promise<string> {
+  const { generateAndDownloadVectorPDF: generatePdf } = await import('./pdfExportService');
+  return generatePdf(estimate);
+}
 
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('ru-RU', {
@@ -30,6 +33,15 @@ export function formatDate(dateString: string): string {
 
 function money(amount: number): string {
   return formatCurrency(amount).replace(/\u00a0/g, ' ');
+}
+
+export function getEstimateNumber(estimate: Estimate): string {
+  const d = estimate.date ? new Date(estimate.date) : new Date();
+  const year = isNaN(d.getTime()) ? new Date() : d;
+  const yy = String(year.getFullYear()).slice(-2);
+  const mm = String(year.getMonth() + 1).padStart(2, '0');
+  const dd = String(year.getDate()).padStart(2, '0');
+  return `${yy}${mm}${dd}-01`;
 }
 
 /** Validates and restores an Estimate from JSON or an exported HTML backup. */
@@ -234,5 +246,5 @@ export function triggerPrintPDF(estimate: Estimate): void {
 
 function escapeHtml(text: string): string {
   if (!text) return '';
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#039;');
 }
