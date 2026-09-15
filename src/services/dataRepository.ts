@@ -14,7 +14,7 @@ type RemoteManifest = {
   version: string;
   locale: string;
   currency: string;
-  files: { catalog: string; categories?: string; synonyms?: string[] | string; config?: string };
+  files: { catalog: string; categories?: string; synonyms?: string | string[]; config?: string };
   itemCount?: number;
 };
 type RemoteCategory = { id: string; name: string };
@@ -41,6 +41,7 @@ const MAX_UNIT = 50;
 const MAX_CATEGORY = 200;
 const DEFAULT_ICON = 'Wrench';
 const DEFAULT_COLOR = 'blue';
+let indexCache: RemoteIndex | null = null;
 
 export const remoteDataUrl = (path: string) => `${REMOTE_DATA_BASE_URL}${path.replace(/^\//, '')}`;
 
@@ -61,11 +62,16 @@ function validateIndex(value: unknown): RemoteIndex {
     const id = typeof item.id === 'string' ? item.id.trim() : '';
     const manifest = typeof item.manifest === 'string' ? item.manifest.trim() : '';
     if (!id || !PROFILE_ID_RE.test(id) || seen.has(id)) throw new Error(`Удалённый index: профиль #${position + 1} некорректен`);
-    if (!manifest || manifest.length > 500 || manifest.includes('..')) throw new Error(`Удалённый index: manifest для ${id} некорректен`);
+    if (!manifest || manifest.length > 500 || manifest.includes('..') || !manifest.endsWith('/manifest.json')) throw new Error(`Удалённый index: manifest для ${id} некорректен`);
     seen.add(id);
     return { id, manifest };
   });
   return { schemaVersion: index.schemaVersion as number, profiles };
+}
+
+async function getRemoteIndex(): Promise<RemoteIndex> {
+  if (!indexCache) indexCache = validateIndex(await fetchJson<unknown>(remoteDataUrl('index.json')));
+  return indexCache;
 }
 
 function validateManifest(value: unknown, expectedProfileId: string): RemoteManifest {
@@ -126,35 +132,38 @@ function parseSynonyms(value: unknown): string[][] | undefined {
   return file.groups.filter(Array.isArray).map((group) => group.filter((entry): entry is string => typeof entry === 'string')).filter((group) => group.length > 0);
 }
 
+async function fetchRemoteProfile(profileId: string) {
+  const index = await getRemoteIndex();
+  const entry = index.profiles.find((profile) => profile.id === profileId);
+  if (!entry) throw new Error(`Профиль ${profileId} отсутствует в удалённом index`);
+  const manifest = validateManifest(await fetchJson<unknown>(remoteDataUrl(entry.manifest)), profileId);
+  return { entry, manifest };
+}
+
 export async function fetchRemoteProfileMetas(): Promise<ProfileMeta[]> {
-  const index = validateIndex(await fetchJson<unknown>(remoteDataUrl('index.json')));
-  const manifests = await Promise.all(index.profiles.map(async ({ id, manifest }) => {
-    const value = validateManifest(await fetchJson<unknown>(remoteDataUrl(manifest)), id);
-    const categories = value.files.categories
-      ? validateCategories(await fetchJson<unknown>(remoteDataUrl(`${id}/${value.files.categories}`)))
+  const index = await getRemoteIndex();
+  return Promise.all(index.profiles.map(async ({ id, manifest: manifestPath }) => {
+    const manifest = validateManifest(await fetchJson<unknown>(remoteDataUrl(manifestPath)), id);
+    const categories = manifest.files.categories
+      ? validateCategories(await fetchJson<unknown>(remoteDataUrl(`${id}/${manifest.files.categories}`)))
       : [];
     return {
       id,
-      name: value.name,
-      description: typeof value.description === 'string' ? value.description : '',
-      icon: typeof value.icon === 'string' && value.icon.length <= 50 ? value.icon : DEFAULT_ICON,
-      color: typeof value.color === 'string' && value.color.length <= 50 ? value.color : DEFAULT_COLOR,
-      manifestUrl: remoteDataUrl(manifest),
+      name: manifest.name,
+      description: typeof manifest.description === 'string' ? manifest.description : '',
+      icon: typeof manifest.icon === 'string' && manifest.icon.length <= 50 ? manifest.icon : DEFAULT_ICON,
+      color: typeof manifest.color === 'string' && manifest.color.length <= 50 ? manifest.color : DEFAULT_COLOR,
+      manifestUrl: remoteDataUrl(manifestPath),
       categories: categories.map((category) => category.name),
-      itemCount: value.itemCount,
-      version: value.version,
+      itemCount: manifest.itemCount,
+      version: manifest.version,
     } satisfies ProfileMeta;
   }));
-  return manifests;
 }
 
 export async function fetchRemoteProfileCatalog(profileId: string): Promise<ProfileCatalog> {
   if (!PROFILE_ID_RE.test(profileId)) throw new Error(`Некорректный id профиля: ${profileId}`);
-  const index = validateIndex(await fetchJson<unknown>(remoteDataUrl('index.json')));
-  const entry = index.profiles.find((profile) => profile.id === profileId);
-  if (!entry) throw new Error(`Профиль ${profileId} отсутствует в удалённом index`);
-
-  const manifest = validateManifest(await fetchJson<unknown>(remoteDataUrl(entry.manifest)), profileId);
+  const { manifest } = await fetchRemoteProfile(profileId);
   const dataset = validateDataset(await fetchJson<unknown>(remoteDataUrl(`${profileId}/${manifest.files.catalog}`)));
   const categories = manifest.files.categories
     ? validateCategories(await fetchJson<unknown>(remoteDataUrl(`${profileId}/${manifest.files.categories}`)))
