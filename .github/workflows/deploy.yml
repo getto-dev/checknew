@@ -35,9 +35,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate local catalog data
-        run: npm run validate:data
-
       - name: Validate remote catalog data
         run: npm run validate:remote-data
 
@@ -58,6 +55,11 @@ jobs:
           test -f dist/pwa-192x192.png
           test -f dist/pwa-512x512.png
           test -f dist/pwa-maskable-512x512.png
+          test ! -e dist/data/profiles.json
+          test ! -e dist/data/profiles/plumbing/catalog.json
+          test ! -e dist/data/profiles/electrical/catalog.json
+          test ! -e dist/data/profiles/finishing/catalog.json
+          test ! -e dist/data/profiles/construction/catalog.json
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
