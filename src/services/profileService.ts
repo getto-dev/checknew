@@ -11,21 +11,27 @@ const MAX_ITEM_DESCRIPTION_LENGTH = 1000;
 const MAX_ITEM_UNIT_LENGTH = 50;
 const MAX_ITEM_CODE_LENGTH = 100;
 const PROFILE_ID_RE = /^[a-z0-9_-]{1,64}$/i;
+const REMOTE_MANIFEST_BASE = 'https://raw.githubusercontent.com/getto-dev/check-data/main/';
 
 export function validateProfileMeta(data: unknown): ProfileMeta[] {
   if (!Array.isArray(data)) throw new Error('Некорректный список профилей: ожидается массив');
   const seenIds = new Set<string>();
   return data.map((item, index) => {
     if (!item || typeof item !== 'object') throw new Error(`Профиль #${index + 1} имеет неверный формат`);
-    const profile = item as Partial<ProfileMeta>;
+    const profile = item as Partial<ProfileMeta> & { catalogPath?: unknown };
     const id = typeof profile.id === 'string' ? profile.id.trim() : '';
     const name = typeof profile.name === 'string' ? profile.name.trim() : '';
-    const manifestUrl = typeof profile.manifestUrl === 'string' ? profile.manifestUrl.trim() : '';
+    // Accept the pre-2.0 cache field once, but normalize it immediately.
+    const manifestUrl = typeof profile.manifestUrl === 'string'
+      ? profile.manifestUrl.trim()
+      : typeof profile.catalogPath === 'string'
+        ? profile.catalogPath.trim()
+        : '';
     if (!id || !PROFILE_ID_RE.test(id)) throw new Error(`Профиль #${index + 1} имеет неверный id`);
     if (seenIds.has(id)) throw new Error(`Дублирующийся id профиля: ${id}`);
     seenIds.add(id);
     if (!name || name.length > MAX_PROFILE_NAME_LENGTH) throw new Error(`Профиль ${id} имеет неверное название`);
-    if (!manifestUrl.startsWith('https://raw.githubusercontent.com/getto-dev/check-data/main/')) throw new Error(`Профиль ${id} имеет недоверенный manifest URL`);
+    if (!manifestUrl.startsWith(REMOTE_MANIFEST_BASE)) throw new Error(`Профиль ${id} имеет недоверенный manifest URL`);
     if (!Array.isArray(profile.categories)) throw new Error(`Профиль ${id} не имеет категорий`);
     const categories = profile.categories.filter((category): category is string => typeof category === 'string').map((category) => category.trim()).filter(Boolean);
     if (categories.length !== profile.categories.length || categories.some((category) => category.length > MAX_CATEGORY_LENGTH)) throw new Error(`Профиль ${id} содержит некорректную категорию`);
