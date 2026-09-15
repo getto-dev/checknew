@@ -1,19 +1,22 @@
-import { CatalogItem, ProfileCatalog } from '../types';
+import { CatalogItem, ProfileCatalog, ProfileMeta } from '../types';
 
 export const REMOTE_DATA_BASE_URL = 'https://raw.githubusercontent.com/getto-dev/check-data/main/';
-export const REMOTE_PROFILE_IDS = new Set(['plumbing', 'electrical', 'finishing', 'construction']);
 
+type RemoteIndexEntry = { id: string; manifest: string };
+type RemoteIndex = { schemaVersion: number; profiles: RemoteIndexEntry[] };
 type RemoteManifest = {
   schemaVersion: number;
   id: string;
   name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
   version: string;
   locale: string;
   currency: string;
-  files: { catalog: string; categories?: string; synonyms?: string; config?: string };
+  files: { catalog: string; categories?: string; synonyms?: string[] | string; config?: string };
   itemCount?: number;
 };
-
 type RemoteCategory = { id: string; name: string };
 type RemoteDataset = {
   schemaVersion: number;
@@ -36,6 +39,8 @@ const MAX_NAME = 300;
 const MAX_DESCRIPTION = 1000;
 const MAX_UNIT = 50;
 const MAX_CATEGORY = 200;
+const DEFAULT_ICON = 'Wrench';
+const DEFAULT_COLOR = 'blue';
 
 export const remoteDataUrl = (path: string) => `${REMOTE_DATA_BASE_URL}${path.replace(/^\//, '')}`;
 
@@ -43,6 +48,24 @@ async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: 'no-cache' });
   if (!response.ok) throw new Error(`HTTP ${response.status} при загрузке ${url}`);
   return response.json() as Promise<T>;
+}
+
+function validateIndex(value: unknown): RemoteIndex {
+  if (!value || typeof value !== 'object') throw new Error('Удалённый index имеет неверный формат');
+  const index = value as Partial<RemoteIndex>;
+  if (!Number.isInteger(index.schemaVersion) || index.schemaVersion < 1) throw new Error('Удалённый index имеет неверную версию схемы');
+  if (!Array.isArray(index.profiles) || index.profiles.length === 0) throw new Error('Удалённый index не содержит профилей');
+  const seen = new Set<string>();
+  const profiles = index.profiles.map((entry, position) => {
+    const item = entry as Partial<RemoteIndexEntry>;
+    const id = typeof item.id === 'string' ? item.id.trim() : '';
+    const manifest = typeof item.manifest === 'string' ? item.manifest.trim() : '';
+    if (!id || !PROFILE_ID_RE.test(id) || seen.has(id)) throw new Error(`Удалённый index: профиль #${position + 1} некорректен`);
+    if (!manifest || manifest.length > 500 || manifest.includes('..')) throw new Error(`Удалённый index: manifest для ${id} некорректен`);
+    seen.add(id);
+    return { id, manifest };
+  });
+  return { schemaVersion: index.schemaVersion as number, profiles };
 }
 
 function validateManifest(value: unknown, expectedProfileId: string): RemoteManifest {
@@ -103,9 +126,35 @@ function parseSynonyms(value: unknown): string[][] | undefined {
   return file.groups.filter(Array.isArray).map((group) => group.filter((entry): entry is string => typeof entry === 'string')).filter((group) => group.length > 0);
 }
 
-export async function fetchRemoteProfileCatalog(profileId: string, uiMeta: { description: string; icon: string }): Promise<ProfileCatalog> {
-  if (!REMOTE_PROFILE_IDS.has(profileId)) throw new Error(`Профиль ${profileId} не обслуживается remote data-layer`);
-  const manifest = validateManifest(await fetchJson<unknown>(remoteDataUrl(`${profileId}/manifest.json`)), profileId);
+export async function fetchRemoteProfileMetas(): Promise<ProfileMeta[]> {
+  const index = validateIndex(await fetchJson<unknown>(remoteDataUrl('index.json')));
+  const manifests = await Promise.all(index.profiles.map(async ({ id, manifest }) => {
+    const value = validateManifest(await fetchJson<unknown>(remoteDataUrl(manifest)), id);
+    const categories = value.files.categories
+      ? validateCategories(await fetchJson<unknown>(remoteDataUrl(`${id}/${value.files.categories}`)))
+      : [];
+    return {
+      id,
+      name: value.name,
+      description: typeof value.description === 'string' ? value.description : '',
+      icon: typeof value.icon === 'string' && value.icon.length <= 50 ? value.icon : DEFAULT_ICON,
+      color: typeof value.color === 'string' && value.color.length <= 50 ? value.color : DEFAULT_COLOR,
+      manifestUrl: remoteDataUrl(manifest),
+      categories: categories.map((category) => category.name),
+      itemCount: value.itemCount,
+      version: value.version,
+    } satisfies ProfileMeta;
+  }));
+  return manifests;
+}
+
+export async function fetchRemoteProfileCatalog(profileId: string): Promise<ProfileCatalog> {
+  if (!PROFILE_ID_RE.test(profileId)) throw new Error(`Некорректный id профиля: ${profileId}`);
+  const index = validateIndex(await fetchJson<unknown>(remoteDataUrl('index.json')));
+  const entry = index.profiles.find((profile) => profile.id === profileId);
+  if (!entry) throw new Error(`Профиль ${profileId} отсутствует в удалённом index`);
+
+  const manifest = validateManifest(await fetchJson<unknown>(remoteDataUrl(entry.manifest)), profileId);
   const dataset = validateDataset(await fetchJson<unknown>(remoteDataUrl(`${profileId}/${manifest.files.catalog}`)));
   const categories = manifest.files.categories
     ? validateCategories(await fetchJson<unknown>(remoteDataUrl(`${profileId}/${manifest.files.categories}`)))
@@ -114,9 +163,7 @@ export async function fetchRemoteProfileCatalog(profileId: string, uiMeta: { des
     ? parseSynonyms(await fetchJson<unknown>(remoteDataUrl(`${profileId}/${manifest.files.synonyms}`)))
     : undefined;
 
-  if (manifest.itemCount !== undefined && manifest.itemCount !== dataset.items.length) {
-    throw new Error(`Удалённый каталог ${profileId}: ожидалось ${manifest.itemCount}, получено ${dataset.items.length}`);
-  }
+  if (manifest.itemCount !== undefined && manifest.itemCount !== dataset.items.length) throw new Error(`Удалённый каталог ${profileId}: ожидалось ${manifest.itemCount}, получено ${dataset.items.length}`);
 
   const categoryMap = new Map(categories.map((category) => [category.id, category.name]));
   const items: CatalogItem[] = dataset.items.map((item) => ({
@@ -132,8 +179,8 @@ export async function fetchRemoteProfileCatalog(profileId: string, uiMeta: { des
   return {
     id: profileId,
     name: manifest.name,
-    description: uiMeta.description,
-    icon: uiMeta.icon,
+    description: typeof manifest.description === 'string' ? manifest.description : '',
+    icon: typeof manifest.icon === 'string' ? manifest.icon : DEFAULT_ICON,
     categories: categories.map((category) => category.name),
     items,
     synonyms,
