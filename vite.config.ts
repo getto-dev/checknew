@@ -34,25 +34,15 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           runtimeCaching: [
-            {
-              urlPattern: /\/data\/.*\.json$/i,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'estimate-data-cache-v2',
-                networkTimeoutSeconds: 3,
-                expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 },
-                cacheableResponse: { statuses: [0, 200] },
-              },
-            },
             {
               urlPattern: /^https:\/\/raw\.githubusercontent\.com\/getto-dev\/check-data\/main\/.*\.json$/i,
               handler: 'NetworkFirst',
               options: {
-                cacheName: 'smeta-remote-data-v1',
+                cacheName: 'smeta-remote-data-v2',
                 networkTimeoutSeconds: 3,
-                expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
                 cacheableResponse: { statuses: [0, 200] },
               },
             },
