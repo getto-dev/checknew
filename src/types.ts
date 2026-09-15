@@ -15,8 +15,10 @@ export interface ProfileMeta {
   description: string;
   icon: string;
   color: string;
-  catalogPath: string;
+  manifestUrl: string;
   categories: string[];
+  itemCount?: number;
+  version?: string;
 }
 
 export interface ProfileCatalog {
@@ -54,7 +56,7 @@ export interface Estimate {
   profileId: string;
   profileName?: string;
   items: EstimateItem[];
-  discount: number; // percentage, e.g. 5 for 5%
+  discount: number;
   subtotal: number;
   servicesSubtotal?: number;
   materialsSubtotal?: number;
