@@ -15,7 +15,6 @@
     "lint": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "e2e": "playwright test",
-    "validate:data": "node scripts/validate-data.mjs",
     "validate:remote-data": "node scripts/validate-remote-data.mjs"
   },
   "dependencies": {
